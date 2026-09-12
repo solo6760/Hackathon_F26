@@ -65,7 +65,6 @@ for x in [-2, -1, 0, 1, 2]:
     q_in = quantize(x)
 
     q_out = lut[q_in - QMIN]
-
     exact = gelu_reference(x)
     approximate = dequantize(q_out)
 
