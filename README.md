@@ -75,14 +75,30 @@ Each byte contains:
 pip install torch numpy brevitas
 ```
 
-### Run Model Simulation
+### Quick Start (Make)
+
 ```bash
-python testing_py/pytorch_model.py
+make help          # Show all available make targets
+make model         # Run PyTorch quantized transformer golden model & LUT tests
+make vectors       # Generate RTL test vectors (act_tile.hex, weights_bram.hex, golden_out.hex)
+make lut-gelu      # Run standalone GeLU LUT quantization & error analysis
+make lut-softmax   # Run standalone Softmax LUT approximation & error analysis
+make qonnx         # Export Brevitas INT8/INT4 layer to QONNX format
+make finn-convert  # Run QONNX cleanup & FINN-ONNX conversion verification
+make clean         # Remove generated hex files and Python caches
 ```
 
-### Generate Hardware Test Vectors
+### Manual Commands
+
 ```bash
+# Run Model Simulation
+python testing_py/pytorch_model.py
+
+# Generate Hardware Test Vectors
 python testing_py/test_reference_vec.py
+
+# Export QONNX Graph
+python testing_py/transformer_script.py
 ```
 This writes `act_tile.hex`, `weights_bram.hex`, and `golden_out.hex` in the current working directory for simulation in ModelSim / Vivado / Verilator.
 
