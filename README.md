@@ -1,0 +1,93 @@
+# Hackathon F26: Quantized Transformer Accelerator
+
+Hardware/software co-design and verification environment for an INT8/INT4 quantized transformer block targeting FPGA implementation.
+
+This repo holds the Python golden models, Brevitas QONNX export scripts, and RTL test vector generators used to verify our custom hardware pipeline.
+
+---
+
+## Architecture & Numerical Specs
+
+| Parameter | Specification | Notes |
+| :--- | :--- | :--- |
+| **Activations** | Signed INT8 (`[-128, 127]`) | Per-tensor symmetric quantization |
+| **Weights** | Signed INT4 (`[-8, 7]`) | Per-tensor symmetric quantization |
+| **Accumulator** | Signed INT32 | Prevents overflow across dot products |
+| **Tile Dimensions** | `M=16, K=16, N=16` | Standard GEMM tile for hardware verification |
+| **Model Dimensions** | `d_model=64`, `seq_len=16` | Multi-head attention (2 heads, `head_dim=32`) |
+| **MLP / FFN Dim** | `d_mlp=128` | Expansion factor of 2x |
+| **Activation Function** | GeLU via 8-bit LUT | Simulates hardware lookup table |
+
+---
+
+## Directory Structure
+
+```text
+├── Koh_work/
+│   └── test.py                 # RTL / hardware simulation scratchpad
+└── testing_py/
+    ├── pytorch_model.py        # Quantized PyTorch reference model (MHSA + FFN + GeLU LUT)
+    ├── test_reference_vec.py   # Test vector & BRAM hex file generator for RTL testbenches
+    └── transformer_script.py   # Brevitas INT8/INT4 layer definition & QONNX export for FINN
+```
+
+---
+
+## File Details
+
+### `testing_py/pytorch_model.py`
+Software golden model for a single-layer quantized transformer block.
+- Implements symmetric INT4 weight and INT8 activation quantization.
+- Models multi-head self-attention, integer matrix multiplications, fixed-point scaling, and an 8-bit GeLU LUT approximation matching the RTL implementation.
+- Verifies full forward pass integrity with residual additions.
+
+### `testing_py/test_reference_vec.py`
+Generates deterministic test vectors and golden outputs for RTL testbench validation using fixed seed `42` on a `16x16x16` tile:
+- `act_tile.hex`: INT8 activation tile (1 byte per line, hex format).
+- `weights_bram.hex`: INT4 signed weights packed LSB-first into 32-bit BRAM words (8 weights / 4 bytes per line).
+- `golden_out.hex`: Exact 32-bit signed integer accumulation outputs for hardware comparison.
+
+### `testing_py/transformer_script.py`
+Minimal quantized linear block constructed with Xilinx/AMD Brevitas:
+- Quantized input identity (`INT8`) and linear projection (`INT4` weights).
+- Exports the graph to QONNX format (`transformer_layer.onnx`) for consumption by the FINN FPGA compiler.
+
+---
+
+## Memory Layout (BRAM Packing)
+
+Weights in `weights_bram.hex` are packed into 32-bit BRAM words (8 INT4 weights per line, little-endian nibble ordering):
+
+```text
+Word [31:0] = [ W7:W6 | W5:W4 | W3:W2 | W1:W0 ]
+Each byte contains:
+  [7:4] -> High weight (odd index)
+  [3:0] -> Low weight  (even index)
+```
+
+---
+
+## Usage
+
+### Dependencies
+
+```bash
+pip install torch numpy brevitas
+```
+
+### Run Model Simulation
+```bash
+python testing_py/pytorch_model.py
+```
+
+### Generate Hardware Test Vectors
+```bash
+python testing_py/test_reference_vec.py
+```
+This writes `act_tile.hex`, `weights_bram.hex`, and `golden_out.hex` in the current working directory for simulation in ModelSim / Vivado / Verilator.
+
+### Export QONNX Graph
+```bash
+python testing_py/transformer_script.py
+```
+Outputs `transformer_layer.onnx` for FINN synthesis.
