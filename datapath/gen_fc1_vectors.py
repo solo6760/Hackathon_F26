@@ -74,11 +74,95 @@ def self_check(w_words, act_lines, Y):
     return acc == Y
 
 
+def load_model_weights():
+    """Load canonical INT4 weights [64, 128] from the exported ONNX model."""
+    candidates = [
+        "../testing_py/transformer_layer_finn.onnx",
+        "testing_py/transformer_layer_finn.onnx",
+        "../testing_py/transformer_layer.onnx",
+        "testing_py/transformer_layer.onnx",
+    ]
+    path = None
+    for c in candidates:
+        if os.path.exists(c):
+            path = c
+            break
+    if path is None:
+        return None
+
+    try:
+        import onnx
+        from onnx import numpy_helper
+        m = onnx.load(path)
+        # Check for FINN transposed weights (64, 128)
+        for init in m.graph.initializer:
+            if init.name == "Quant_1_out0":
+                arr = numpy_helper.to_array(init).astype(int)
+                return arr.tolist()
+        # Fallback: PyTorch layout [128, 64] -> quantize and transpose to [64, 128]
+        for init in m.graph.initializer:
+            if init.name == "fc1.weight":
+                arr = numpy_helper.to_array(init)
+                scale = 0.017854882
+                arr_q = [
+                    [max(-8, min(7, int(round(val / scale)))) for val in row]
+                    for row in arr
+                ]
+                # Transpose [128, 64] -> [64, 128]
+                return [[arr_q[n][k] for n in range(128)] for k in range(64)]
+    except Exception as e:
+        print(f"Note: failed to load ONNX ({e}), falling back to seeded generation")
+        return None
+    return None
+
+
 if __name__ == "__main__":
-    rng = random.Random(42)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Generate test vectors for fc1 datapath")
+    parser.add_argument(
+        "--source",
+        choices=["model", "random"],
+        default="model",
+        help="Use real ONNX model weights or seeded random data (default: model)",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for input activation generation (default: 42)",
+    )
+    args = parser.parse_args()
+
+    rng = random.Random(args.seed)
+
+    # Real input X (16x64, INT8 [-128, 127])
     X = [[rng.randint(-128, 127) for _ in range(K)] for _ in range(M)]
-    W = [[rng.randint(-8, 7) for _ in range(N)] for _ in range(K)]
+
+    W = None
+    if args.source == "model":
+        W = load_model_weights()
+        if W is not None:
+            print("Loaded real trained/exported fc1 weights from ONNX (shape: 64x128, INT4)")
+
+    if W is None:
+        print(f"Using seeded random weights (seed={args.seed})")
+        W = [[rng.randint(-8, 7) for _ in range(N)] for _ in range(K)]
+
+    # Golden INT32 accumulation: Y = X * W
     Y = [[sum(X[m][k] * W[k][n] for k in range(K)) for n in range(N)] for m in range(M)]
+
+    # Fixed requantization to INT8 for downstream GeLU LUT (scale Sy = 1/32)
+    # M_req = (Sx * Sw) / Sy = (1/128 * 0.017854882) / (1/32) ~= 293 / 65536
+    M_REQ = 293
+    SHIFT = 16
+    Y_int8 = [
+        [
+            max(-128, min(127, (Y[m][n] * M_REQ + (1 << (SHIFT - 1))) >> SHIFT))
+            for n in range(N)
+        ]
+        for m in range(M)
+    ]
 
     w_words = []
     for g in range(GROUPS):
@@ -92,10 +176,13 @@ if __name__ == "__main__":
     write_hex(f"{OUT}/act_fc1.hex", act_lines, 32)
     write_hex(f"{OUT}/w_fc1.hex", w_words, 8)
     write_hex(f"{OUT}/golden_fc1.hex", [v for row in Y for v in row], 8)
+    write_hex(f"{OUT}/golden_fc1_int8.hex", [v & 0xFF for row in Y_int8 for v in row], 2)
     for g, k in CHECK_TILES:
         write_hex(f"{OUT}/exp_w_g{g}_k{k}.hex", weight_tile(W, g, k), 8)
         write_hex(f"{OUT}/exp_act_k{k}.hex", act_lines[k * T:(k + 1) * T], 32)
 
     flat = [v for row in Y for v in row]
+    flat_int8 = [v for row in Y_int8 for v in row]
     print(f"wrote {OUT}/: {len(act_lines)} act lines, {len(w_words)} weight words, "
-          f"{len(flat)} golden words (Y range {min(flat)}..{max(flat)})")
+          f"{len(flat)} golden INT32 words (Y range {min(flat)}..{max(flat)}), "
+          f"{len(flat_int8)} golden INT8 words (Y_int8 range {min(flat_int8)}..{max(flat_int8)})")

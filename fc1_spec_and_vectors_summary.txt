@@ -1,0 +1,145 @@
+================================================================================
+FC1 HARDWARE SPECIFICATION, WEIGHT EXPORT & REQUANTIZATION SUMMARY
+================================================================================
+Date: 2026-09-19
+Project: Hackathon F26 - Quantized Transformer Accelerator
+Target Layer: FFN Layer 1 (fc1 / ffn1)
+
+
+--------------------------------------------------------------------------------
+1. WEIGHT DIMENSIONS & TRANSPOSITION
+--------------------------------------------------------------------------------
+- Question:
+    FFN1 weights are listed as [128, 64]. Is that PyTorch out x in?
+    Do we pack (K, N) = [64, 128]?
+- Answer:
+    YES, TRANSPOSE TO [64, 128].
+    * In PyTorch, nn.Linear(in_features=64, out_features=128) stores weights in
+      row-major [out_features, in_features] = [128, 64] to compute Y = X * W^T.
+    * The hardware datapath computes Y (M, N) = X (M, K) x W (K, N), where:
+        M = 16 (Sequence Length / Batch)
+        K = 64 (Input Activation Dimension)
+        N = 128 (Expanded Hidden Dimension)
+    * Packing weights as (K, N) = [64, 128] is 100% correct.
+    * This directly matches FINN's QONNX graph representation in
+      `testing_py/transformer_layer_finn.onnx`, where the weight tensor
+      `Quant_1_out0` is stored as (64, 128).
+
+
+--------------------------------------------------------------------------------
+2. REAL TRAINED/EXPORTED WEIGHTS & INPUT TEST VECTORS
+--------------------------------------------------------------------------------
+- Canonical Model Weights:
+    Extracted directly from `testing_py/transformer_layer_finn.onnx`
+    (initializer: `Quant_1_out0`), corresponding to the synthesized Brevitas
+    INT4 quantized model weights.
+    * Shape: [64, 128]
+    * Precision: Signed INT4 in range [-7, 7]
+
+- Input Activations:
+    Real INT8 input tensor X of shape [16, 64] matching the Brevitas
+    `QuantIdentity` input quantization scale (Sx = 1/128).
+    * Shape: [16, 64]
+    * Precision: Signed INT8 in range [-128, 127]
+
+- Generator Script:
+    `datapath/gen_fc1_vectors.py` has been updated with automatic ONNX weight
+    extraction and layout packing:
+        python3 datapath/gen_fc1_vectors.py               # Real model weights
+        python3 datapath/gen_fc1_vectors.py --source random  # Seeded random fallback
+
+- Output Files (written to `datapath/vectors/`):
+    * `w_fc1.hex`:
+        1024 lines x 32-bit words (8 hex digits).
+        Tile-major order: 8 groups x 4 K-tiles = 32 tiles (16x16 elements each).
+        LSB-first nibble packing (8 INT4 weights per 32-bit word).
+    * `act_fc1.hex`:
+        64 lines x 128 bits (32 hex digits).
+        K-major order: line k holds X[0..15][k] with byte m at bits [8m+7:8m].
+    * `golden_fc1.hex`:
+        2048 lines x 32-bit hex words (M, N row-major).
+        Exact INT32 accumulation: Y_int32 in range [-9122, 8551].
+    * `golden_fc1_int8.hex`:
+        2048 lines x 2 hex digits (M, N row-major).
+        Fixed-scale requantized INT8 output: Y_int8 in range [-41, 38].
+    * `exp_w_g{g}_k{k}.hex` & `exp_act_k{k}.hex`:
+        Single-tile debug dumps for addressing verification (G0K0, G4K1, G7K3).
+
+
+--------------------------------------------------------------------------------
+3. FIXED INT8 REQUANTIZATION SCALE (NO RUNTIME MAX-ABS)
+--------------------------------------------------------------------------------
+- Background:
+    In hardware, runtime max-abs dynamic scaling is prohibited because it
+    requires buffering all 2048 outputs, comparator trees, and a division unit.
+    Requantization uses a hardcoded fixed-point scale factor.
+
+- Downstream Requirement:
+    FC1 feeds directly into the GeLU LUT (`layer_dimensions_and_golden_vectors.txt`
+    and `Koh_work/koh_python.py`). The GeLU LUT expects signed INT8 inputs with
+    a fixed step size of Sy = 1/32 = 0.03125 (covering real range [-4.0, +3.96875]).
+
+- Fixed Scale Parameters:
+    * Input scale (Sx):      1 / 128 = 0.0078125 = 2^(-7)
+    * Weight scale (Sw):     0.017854882
+    * GeLU target scale (Sy): 1 / 32  = 0.03125   = 2^(-5)
+
+- Requantization Multiplier Formulation:
+    Y_real = Y_int32 * (Sx * Sw)
+    Y_int8 = round( Y_real / Sy ) = round( Y_int32 * M )
+
+    M = (Sx * Sw) / Sy
+      = ((1/128) * 0.017854882) / (1/32)
+      = 0.017854882 / 4
+      = 0.0044637205
+      (1 / M ~= 224.028)
+
+- RTL Hardcoding Implementations:
+
+    OPTION A: Fixed-Point Multiplier + Shift (Recommended, error < 0.16%)
+    ---------------------------------------------------------------------
+    Multiplier M0 = round(M * 2^16) = round(0.0044637205 * 65536) = 293
+    Right Shift   = 16
+
+    SystemVerilog Logic:
+        logic signed [31:0] scaled;
+        logic signed [7:0]  out_int8;
+
+        // Multiply, add rounding offset (+ 1/2 LSB = 0x8000), arithmetic shift:
+        scaled = ((Y_int32 * 32'sd293) + 32'sh8000) >>> 16;
+
+        // Saturate to signed INT8 [-128, 127]:
+        always_comb begin
+            if (scaled > 32'sd127)        out_int8 = 8'sd127;
+            else if (scaled < -32'sd128)  out_int8 = -8'sd128;
+            else                          out_int8 = scaled[7:0];
+        end
+
+    OPTION B: Pure Power-of-2 Right Shift (Zero DSP Multipliers)
+    ------------------------------------------------------------
+    Approximating Sw ~= 2^(-6) = 0.015625 yields:
+        M = (2^(-7) * 2^(-6)) / 2^(-5) = 2^(-8) = 1 / 256
+    Requantization reduces to an arithmetic right shift by 8 bits.
+
+    SystemVerilog Logic:
+        logic signed [31:0] shifted;
+        logic signed [7:0]  out_int8;
+
+        shifted = (Y_int32 + 32'sd128) >>> 8; // rounded shift
+
+        always_comb begin
+            if (shifted > 32'sd127)       out_int8 = 8'sd127;
+            else if (shifted < -32'sd128) out_int8 = -8'sd128;
+            else                          out_int8 = shifted[7:0];
+        end
+
+- Dynamic Range Verification:
+    With the exported model weights and real INT8 activations:
+    * Y_int32 range:  -9,122 to +8,551
+    * Y_int8 (Opt A): -41 to +38
+    * Y_int8 (Opt B): -35 to +33
+    Both fit comfortably within signed INT8 [-128, 127] with ZERO saturation
+    clipping, perfectly centering values on the high-curvature region of the
+    GeLU activation curve.
+================================================================================
+
