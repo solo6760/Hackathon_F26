@@ -1,0 +1,23 @@
+FINN / Vivado Results
+
+Precision:
+INT8 activations
+INT4 weights
+
+FINN bottleneck:
+Baseline: 131072 cycles
+Optimized: 512 cycles
+Reduction: 256x
+
+Vivado 2024.2 post-route:
+fmax: 183.39 MHz
+WNS: +4.547 ns
+LUT: 10022
+FF: 15055
+DSP: 100
+BRAM: 14 BRAM36K + 1 BRAM18K
+Estimated power: 0.509 W
+
+Activation approximation:
+GeLU MAE: ~0.0065
+Softmax MAE: ~0.0083
