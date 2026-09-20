@@ -1,11 +1,5 @@
-"""Bit-Accurate PyTorch Reference Model & RTL Pipeline Simulator.
+"""Bit-accurate PyTorch reference model and RTL pipeline simulator."""
 
-Emulates target FPGA hardware pipeline with cycle- and bit-accurate integer arithmetic:
-  - INT4 weights [-8, 7], INT8 activations [-128, 127], INT32 accumulators.
-  - Hardware fixed-point requantization (round-to-nearest vs truncation, bit shifts, saturation).
-  - 8-bit GeLU LUT (256 entries, step 1/32) and Exponential Softmax LUT (33 entries, step 0.25).
-  - Side-by-side FP32 baseline vs bit-accurate RTL model with MAE and Cosine Similarity metrics.
-"""
 
 import math
 import numpy as np
@@ -122,7 +116,7 @@ class QuantizedLinearRTL(nn.Module):
 
 # 5. Full Transformer Block (Side-by-side RTL and FP32)
 class SmallTransformerBlockRTL(nn.Module):
-    def __init__(self, d_model=64, n_heads=2, d_mlp=128):
+    def __init__(self, d_model=64, n_heads=1, d_mlp=128):
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
@@ -137,6 +131,27 @@ class SmallTransformerBlockRTL(nn.Module):
         # FFN: FC1 uses mult=293 >>> 16 to scale into GeLU step (1/32)
         self.ffn1 = QuantizedLinearRTL(d_model, d_mlp, req_mult=293, req_shift=16)
         self.ffn2 = QuantizedLinearRTL(d_mlp, d_model, req_mult=None, req_shift=6)
+
+    def load_trained_checkpoint(self, checkpoint_path="testing_py/kera_sensor_fusion_trained.pt"):
+        import os
+        if not os.path.exists(checkpoint_path):
+            return False
+        ckpt = torch.load(checkpoint_path, map_location="cpu")
+        qw = ckpt["quantized_weights"]
+        sd = ckpt["model_state_dict"]
+        self.q_proj.w_int4.copy_(qw["w_q"])
+        self.q_proj.w_fp32.copy_(sd["q_proj.weight"])
+        self.k_proj.w_int4.copy_(qw["w_k"])
+        self.k_proj.w_fp32.copy_(sd["k_proj.weight"])
+        self.v_proj.w_int4.copy_(qw["w_v"])
+        self.v_proj.w_fp32.copy_(sd["v_proj.weight"])
+        self.out_proj.w_int4.copy_(qw["w_out"])
+        self.out_proj.w_fp32.copy_(sd["out_proj.weight"])
+        self.ffn1.w_int4.copy_(qw["w_ffn1"])
+        self.ffn1.w_fp32.copy_(sd["ffn1.weight"])
+        self.ffn2.w_int4.copy_(qw["w_ffn2"])
+        self.ffn2.w_fp32.copy_(sd["ffn2.weight"])
+        return True
 
     def forward_rtl(self, x_int8):
         """Cycle- and bit-accurate execution of the full KERA hardware pipeline."""
@@ -230,11 +245,16 @@ def evaluate_numerical_fidelity(model, dummy_input_fp32):
 
 if __name__ == "__main__":
     torch.manual_seed(42)
-    model = SmallTransformerBlockRTL(d_model=64, n_heads=2, d_mlp=128)
-    dummy_in = torch.randn(1, 16, 64)
+    # Proposal target: S=64 tokens, H=1 single attention head, D=64, d_mlp=128
+    model = SmallTransformerBlockRTL(d_model=64, n_heads=1, d_mlp=128)
+    loaded = model.load_trained_checkpoint("testing_py/kera_sensor_fusion_trained.pt")
+    if loaded:
+        print("Loaded real trained weights from testing_py/kera_sensor_fusion_trained.pt")
+
+    dummy_in = torch.randn(1, 64, 64)
 
     metrics = evaluate_numerical_fidelity(model, dummy_in)
-    print("Bit-Accurate RTL Model vs FP32 Baseline:")
+    print("Bit-Accurate RTL Model vs FP32 Baseline (S=64 tokens, H=1 head):")
     print(f"  Mean Absolute Error (MAE): {metrics['mae']:.5f}")
     print(f"  Max Absolute Error       : {metrics['max_err']:.5f}")
     print(f"  Cosine Similarity        : {metrics['cosine_sim']:.5f}")

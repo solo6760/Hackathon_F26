@@ -45,14 +45,36 @@ def compute_metrics(ref_fp32, quant_ref, rtl_sim=None, *, quant_scale=1.0):
     return reports
 
 
-def run_ablation_model(seq_len=16, d_model=64, d_mlp=128, seed=42, return_vectors=False):
+def run_ablation_model(seq_len=64, d_model=64, n_heads=1, d_mlp=128, seed=42, return_vectors=False):
     total_weights = 4 * d_model * d_model + 2 * d_model * d_mlp
     weight_kb = {"A": total_weights / 1024.0, "B": total_weights / 2048.0}
     bram = {
         "A": math.ceil(total_weights * 8 / 36864),
         "B": math.ceil(total_weights * 4 / 36864),
     }
-    mac_cycles = 753664 // 256
+
+    # MAC counts scaled to seq_len
+    total_macs = seq_len * (4 * d_model * d_model + 2 * d_model * d_mlp + d_model * seq_len + seq_len * d_model)
+    mac_cycles = total_macs // 256
+
+    # Dynamic buffer footprint (Bytes):
+    # Materialized (Config A & B) must store the full S x S INT32 score matrix and INT8 prob matrix
+    score_matrix_bytes = n_heads * seq_len * seq_len * 4  # INT32
+    prob_matrix_bytes = n_heads * seq_len * seq_len * 1   # INT8
+    act_buffer_bytes = seq_len * d_model * 5 + seq_len * d_mlp
+    peak_buf_materialized = act_buffer_bytes + score_matrix_bytes + prob_matrix_bytes
+
+    # Tiled (Config C - KERA) streams T x T tiles (16x16) and only maintains online softmax running state
+    online_softmax_state_bytes = 2 * seq_len * 4  # running max and running sum
+    tile_buf_bytes = 16 * 16 * 4                  # INT32 tile
+    peak_buf_tiled = act_buffer_bytes + online_softmax_state_bytes + tile_buf_bytes
+
+    # Memory traffic (Bytes):
+    # Projections and FFN: seq_len * d_model * 10
+    base_act_traffic = seq_len * d_model * 10
+    # Config A & B write and read the intermediate S x S score matrix
+    traffic_materialized = total_weights * (1.0 if True else 0.5) + base_act_traffic + 2 * score_matrix_bytes
+    traffic_tiled = total_weights * 0.5 + base_act_traffic  # eliminates intermediate score matrix traffic
 
     rng = np.random.default_rng(seed)
     x_fp = rng.standard_normal((seq_len, d_model), dtype=np.float32)
@@ -66,15 +88,16 @@ def run_ablation_model(seq_len=16, d_model=64, d_mlp=128, seed=42, return_vector
     mae8 = error_metrics(y_fp, y8_acc * (x_scale * w8_scale))["mae"]
     mae4 = error_metrics(y_fp, y4_acc * (x_scale * w4_scale))["mae"]
 
-    # Tiling changes scheduling and storage, not arithmetic; B and C therefore
-    # have identical numerical results unless the RTL adds another approximation.
     results = {
-        "A": {"w_kb": weight_kb["A"], "bram": bram["A"], "buf": 9728,
-              "traffic": total_weights + 19456, "cycles": mac_cycles + 768, "mae": mae8},
-        "B": {"w_kb": weight_kb["B"], "bram": bram["B"], "buf": 9728,
-              "traffic": total_weights / 2 + 19456, "cycles": mac_cycles + 512, "mae": mae4},
-        "C": {"w_kb": weight_kb["B"], "bram": bram["B"], "buf": 7296,
-              "traffic": total_weights / 2 + 15360, "cycles": mac_cycles + 128, "mae": mae4},
+        "A": {"w_kb": weight_kb["A"], "bram": bram["A"], "buf": peak_buf_materialized,
+              "traffic": total_weights * 1.0 + base_act_traffic + 2 * score_matrix_bytes,
+              "cycles": mac_cycles + 768, "mae": mae8},
+        "B": {"w_kb": weight_kb["B"], "bram": bram["B"], "buf": peak_buf_materialized,
+              "traffic": total_weights * 0.5 + base_act_traffic + 2 * score_matrix_bytes,
+              "cycles": mac_cycles + 512, "mae": mae4},
+        "C": {"w_kb": weight_kb["B"], "bram": bram["B"], "buf": peak_buf_tiled,
+              "traffic": traffic_tiled,
+              "cycles": mac_cycles + 128, "mae": mae4},
     }
     if return_vectors:
         return results, {"fp32": y_fp, "quant": y4_acc, "scale": x_scale * w4_scale}
