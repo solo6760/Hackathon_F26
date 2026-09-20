@@ -120,7 +120,6 @@ python3 -m pip install numpy torch
 ```
 
 **RTL GEMM simulation also requires Icarus Verilog**:
-
 Debian/Ubuntu
 ```bash
 sudo apt install iverilog
