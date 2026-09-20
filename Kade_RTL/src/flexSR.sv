@@ -1,8 +1,9 @@
-`timescale 1ns / 10ps
+`timescale 1ns/1ps
+`default_nettype none
 
 module flexSR #(
-    parameter SIZE = 8,
-    parameter MSB_FIRST = 0
+    parameter int SIZE = 8,
+    parameter bit MSB_FIRST = 1'b0
 ) (
     input logic clk,
     input logic n_rst,
@@ -14,24 +15,25 @@ module flexSR #(
     output logic serial_out
 );
 
-    logic [SIZE-1:0] val, next_val;
+    logic [SIZE-1:0] value;
 
     always_ff @(posedge clk, negedge n_rst) begin
         if(!n_rst) begin
-            val <= {SIZE{1'b1}};
-        end else begin
-            val <= next_val;
+            value <= '0;
+        end else if(load_enable) begin
+            value <= parallel_in;
+        end else if(shift_enable) begin
+            if(MSB_FIRST) begin
+                value <= (value << 1) | SIZE'(serial_in);
+            end else begin
+                value <= (value >> 1) | (SIZE'(serial_in) << (SIZE-1));
+            end
         end
     end
 
-    always_comb begin
-        next_val = load_enable ? parallel_in :
-        shift_enable ? MSB_FIRST ? {val[SIZE - 2:0],  serial_in} :
-        {serial_in, val[SIZE - 1:1]} : val;
-        
-        parallel_out = val;
-        serial_out = MSB_FIRST ? val[SIZE-1] : val[0];
-    end
+    assign parallel_out = value;
+    assign serial_out = MSB_FIRST ? value[SIZE-1] : value[0];
 
 endmodule
 
+`default_nettype wire

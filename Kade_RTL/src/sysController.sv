@@ -1,152 +1,198 @@
+`timescale 1ns/1ps
+`default_nettype none
+
+// Tile controller around the systolic array and serialized INT8 output FIFO.
+// Input data must use the skewing convention documented in sysArr.sv.
 module sysController #(
-    SIZE = 16 //the n x n dimensions of the systolic array
+    parameter int SIZE = 16,
+    parameter int INNER_DIM = SIZE,
+    parameter int FIFO_DEPTH = 64,
+    parameter int REQUANT_SHIFT = 5,
+    parameter int COMPUTE_CYCLES = INNER_DIM + 2*SIZE - 2,
+    parameter int INDEX_WIDTH = (SIZE <= 1) ? 1 : $clog2(SIZE),
+    parameter int CYCLE_WIDTH = (COMPUTE_CYCLES <= 1) ? 1 : $clog2(COMPUTE_CYCLES)
 ) (
     input logic clk,
     input logic n_rst,
-    
     input logic tile_start,
     input logic drain_start,
-    input logic [5:0] tile_index,
-    input logic acc_clear,
-    input logic acc_en,
-
-    // Outputs
-    output logic computer_active,
+    input logic signed [3:0] vert_input [0:SIZE-1],
+    input logic signed [7:0] horiz_input [0:SIZE-1],
+    input logic fifo_ren,
+    output logic signed [7:0] fifo_dout,
+    output logic fifo_empty,
+    output logic fifo_full,
+    output logic fifo_valid,
+    output logic compute_active,
     output logic drain_active,
-    output logic ready
+    output logic tile_done,
+    output logic drain_done
 );
 
-typedef enum logic [1:0] {
-    IDLE,
-    LOAD,
-    COMPUTE,
-    DRAIN
-} state_t;
+    typedef enum logic [2:0] {
+        IDLE, CLEAR_ARRAY, COMPUTE, WAIT_DRAIN, DRAIN
+    } state_t;
 
-state_t counter_state, next_counter;
+    state_t state;
+    logic [CYCLE_WIDTH-1:0] compute_count;
+    logic [INDEX_WIDTH-1:0] drain_row, drain_col;
+    logic signed [31:0] array_out [0:SIZE-1][0:SIZE-1];
+    logic signed [31:0] selected_acc;
+    logic signed [7:0] requantized;
+    logic fifo_wen;
 
-logic [$clog2(SIZE) - 1:0] inputCount;
-logic roll_flag;
-logic [$clog2(SIZE) - 1:0] rollVal;
+    function automatic logic signed [7:0] requantize_int8(
+        input logic signed [31:0] accumulator
+    );
+        logic signed [32:0] extended_acc;
+        logic signed [32:0] rounded_acc;
+        logic signed [32:0] shifted_acc;
+        begin
+            extended_acc = {accumulator[31], accumulator};
+            // Signed round-to-nearest, with exact half-way cases rounded away
+            // from zero. Subtracting one from the negative bias avoids the
+            // otherwise incorrect round-toward-positive-infinity behavior.
+            if(REQUANT_SHIFT > 0) begin
+                if(accumulator[31]) begin
+                    rounded_acc = extended_acc
+                                + (33'sd1 <<< (REQUANT_SHIFT-1)) - 33'sd1;
+                end else begin
+                    rounded_acc = extended_acc
+                                + (33'sd1 <<< (REQUANT_SHIFT-1));
+                end
+            end else begin
+                rounded_acc = extended_acc;
+            end
+            shifted_acc = rounded_acc >>> REQUANT_SHIFT;
+            if(shifted_acc > 33'sd127) begin
+                requantize_int8 = 8'sh7f;
+            end else if(shifted_acc < -33'sd128) begin
+                requantize_int8 = 8'sh80;
+            end else begin
+                requantize_int8 = shifted_acc[7:0];
+            end
+        end
+    endfunction
 
-logic fifo_wr_en, fifo_full, fifo_empty;
-
-assign counter_change = (counter_state != next_counter);
-
-nbitCounter #(
-        .SIZE($clog2(SIZE))
-) inst_count (
+    sysArr #(.SIZE(SIZE)) array_i (
         .clk(clk),
         .n_rst(n_rst),
-        .roll_val(rollVal),
-        .clear(counter_clear | counter_change),
-        .count_en(counter_enable),
-        .count_out(inputCount),
-        .roll_flag(roll_flag)
-);
+        .vert_input(vert_input),
+        .horiz_input(horiz_input),
+        .load_en(compute_active),
+        .acc_clr(state == CLEAR_ARRAY),
+        .acc_en(compute_active),
+        .out(array_out)
+    );
 
-sysArr #(
-    .SIZE(SIZE)
-) inst_sysArr (
-    .clk(clk),
-    .n_rst(n_rst),
-    .vertInput(vertInput),
-    .horizInput(horizInput),
-    .load_en(load_en),
-    .acc_clr(acc_clear),
-    .acc_en(acc_en),
-    .out(out)
-);
+    assign selected_acc = array_out[drain_row][drain_col];
+    assign requantized = requantize_int8(selected_acc);
+    // When a full FIFO is read this cycle, reuse the vacated slot immediately
+    // instead of inserting a drain bubble.
+    assign fifo_wen = (state == DRAIN) &&
+        (!fifo_full || (fifo_ren && !fifo_empty));
+    assign compute_active = (state == COMPUTE);
+    assign drain_active = (state == DRAIN);
 
-asyncFIFO #(
-    .SIZE(SIZE)
-) inst_fifo (
-    .clk(clk),
-    .n_rst(n_rst),
-    .write_en(fifo_wr_en),
-    .read_en(!fifo_empty),
-    .data_in(data_in),
-    .data_out(data_out),
-    .empty(fifo_empty),
-    .full(fifo_full)
-);
+    asyncFIFO #(
+        .DATA_WIDTH(8),
+        .DEPTH(FIFO_DEPTH)
+    ) fifo_i (
+        .clk(clk),
+        .n_rst(n_rst),
+        .wen(fifo_wen),
+        .ren(fifo_ren),
+        .din(requantized),
+        .dout(fifo_dout),
+        .full(fifo_full),
+        .empty(fifo_empty),
+        .valid_read(fifo_valid)
+    );
 
+    always_ff @(posedge clk, negedge n_rst) begin
+        if(!n_rst) begin
+            state <= IDLE;
+            compute_count <= '0;
+            drain_row <= '0;
+            drain_col <= '0;
+            tile_done <= 1'b0;
+            drain_done <= 1'b0;
+        end else begin
+            tile_done <= 1'b0;
+            drain_done <= 1'b0;
 
+            case(state)
+                IDLE: begin
+                    if(tile_start) begin
+                        state <= CLEAR_ARRAY;
+                    end
+                end
 
-always_ff @(posedge clk, negedge n_rst) begin
-    if(!n_rst) begin
-        counter_state <= IDLE;
-    end else begin
-        counter_state <= next_counter;
+                CLEAR_ARRAY: begin
+                    compute_count <= '0;
+                    state <= COMPUTE;
+                end
+
+                COMPUTE: begin
+                    if(compute_count == COMPUTE_CYCLES-1) begin
+                        compute_count <= '0;
+                        tile_done <= 1'b1;
+                        state <= WAIT_DRAIN;
+                    end else begin
+                        compute_count <= compute_count + 1'b1;
+                    end
+                end
+
+                WAIT_DRAIN: begin
+                    if(drain_start) begin
+                        drain_row <= '0;
+                        drain_col <= '0;
+                        state <= DRAIN;
+                    end
+                end
+
+                DRAIN: begin
+                    if(fifo_wen) begin
+                        if(drain_col == SIZE-1) begin
+                            drain_col <= '0;
+                            if(drain_row == SIZE-1) begin
+                                drain_row <= '0;
+                                drain_done <= 1'b1;
+                                state <= IDLE;
+                            end else begin
+                                drain_row <= drain_row + 1'b1;
+                            end
+                        end else begin
+                            drain_col <= drain_col + 1'b1;
+                        end
+                    end
+                end
+
+                default: begin
+                    state <= IDLE;
+                end
+            endcase
+        end
     end
-end
 
-
-
-always_comb begin : counterLogic
-
-    fifo_wr_en = 1'b0;
-
-    case(counter_state)
-        IDLE: begin
-            if(tile_start) begin
-                next_counter = LOAD;
-            end else begin
-                next_counter = IDLE;
-            end
-
-            counter_clear = 1'b1;
-            counter_enable = 1'b0;
-            rollVal = SIZE - 1;
+    initial begin
+        if(SIZE < 1) begin
+            $error("sysController SIZE must be at least one");
         end
-
-        LOAD: begin
-            if(roll_flag) begin
-                next_counter = COMPUTE;
-            end else begin
-                next_counter = LOAD;
-            end
-
-            counter_clear = 1'b0;
-            counter_enable = 1'b1;
-            rollVal = SIZE - 1;
+        if(INNER_DIM < 1) begin
+            $error("sysController INNER_DIM must be at least one");
         end
-
-        COMPUTE: begin
-            if(roll_flag) begin
-                next_counter = DRAIN;
-            end else begin
-                next_counter = COMPUTE;
-            end
-
-            counter_clear = 1'b0;
-            counter_enable = 1'b1;
-            rollVal = SIZE - 1;
+        if(FIFO_DEPTH < 1) begin
+            $error("sysController FIFO_DEPTH must be at least one");
         end
-
-        DRAIN: begin
-            if(roll_flag) begin
-                next_counter = IDLE;
-            end else begin
-                next_counter = DRAIN;
-            end
-
-            counter_clear = 1'b0;
-            counter_enable = 1'b1;
-            rollVal = SIZE - 1;
-            fifo_wr_en = !fifo_full;
+        if(REQUANT_SHIFT < 0 || REQUANT_SHIFT > 31) begin
+            $error("sysController REQUANT_SHIFT must be between 0 and 31");
         end
-
-        default: begin
-            next_counter = IDLE;
-
-            counter_clear = 1'b1;
-            counter_enable = 1'b0;
-            rollVal = SIZE - 1;
+        if(COMPUTE_CYCLES < 1) begin
+            $error("sysController COMPUTE_CYCLES must be at least one");
         end
-    endcase
-end
-
-
+    end
 
 endmodule
+
+`default_nettype wire

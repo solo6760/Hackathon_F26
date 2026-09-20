@@ -1,5 +1,8 @@
+`timescale 1ns/1ps
+`default_nettype none
+
 module flexCounter #(
-    SIZE = 8
+    parameter int SIZE = 8
 ) (
     input logic clk,
     input logic n_rst,
@@ -10,25 +13,17 @@ module flexCounter #(
     output logic roll_flag
 );
 
-    logic [SIZE-1:0] val, next_val;
-
     always_ff @(posedge clk, negedge n_rst) begin
-        if(!n_rst) begin
-            val <= {SIZE{1'b0}};
-        end else begin
-            val <= next_val;
+        if(!n_rst || clear) begin
+            count_out <= '0;
+        end else if(count_en) begin
+            count_out <= (count_out >= roll_val) ? '0 : count_out + 1'b1;
         end
     end
 
-    always_comb begin
-        next_val =
-        clear ? 0 :
-        (count_en ?
-        (val >= roll_val ?
-        0 : val + 1) : val);
+    // One-cycle terminal-count indication only when a count is requested.
+    assign roll_flag = count_en && (count_out >= roll_val);
 
-        count_out = val;
-
-        roll_flag = (val >= roll_val);
-    end
 endmodule
+
+`default_nettype wire

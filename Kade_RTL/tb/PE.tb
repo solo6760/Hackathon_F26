@@ -1,0 +1,2 @@
+// Legacy placeholder retained for compatibility with the original tree.
+// The executable PU checks now live in tb_primitives.sv.
