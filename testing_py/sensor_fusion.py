@@ -1,6 +1,4 @@
-import math
 import numpy as np
-import torch
 
 
 def generate_ares_trajectory(seq_len=16, dt=0.05, seed=42):
@@ -23,11 +21,10 @@ def generate_ares_trajectory(seq_len=16, dt=0.05, seed=42):
     wy = 0.5 * np.sin(2.0 * t) + rng.normal(0, 0.01, seq_len)
     wz = 1.0 * np.cos(1.5 * t) + rng.normal(0, 0.01, seq_len)
 
-    lidar = np.zeros((seq_len, 8))
-    for b in range(8):
-        angle = b * (2 * math.pi / 8)
-        base_dist = 2.5 + 1.5 * np.cos(angle - t * 2)
-        lidar[:, b] = np.clip(base_dist + rng.normal(0, 0.05, seq_len), 0.2, 5.0)
+    # Broadcast every beam at once; rows are timesteps and columns are beams.
+    angles = np.arange(8, dtype=np.float64) * (2.0 * np.pi / 8.0)
+    base_dist = 2.5 + 1.5 * np.cos(angles[None, :] - 2.0 * t[:, None])
+    lidar = np.clip(base_dist + rng.normal(0, 0.05, (seq_len, 8)), 0.2, 5.0)
 
     dx = 0.1 * np.sin(4.0 * t)
     dy = 0.1 * np.cos(4.0 * t)
@@ -43,7 +40,12 @@ def generate_ares_trajectory(seq_len=16, dt=0.05, seed=42):
     }
 
 
-def embed_sensor_stream(sensor_data, d_model=64, seed=42):
+def embed_sensor_stream(sensor_data, d_model=64, seed=42, as_numpy=False):
+    """Embed and quantize the sensor stream.
+
+    ``as_numpy=True`` avoids importing PyTorch in high-throughput vector tools;
+    the default preserves the original tensor-returning public API.
+    """
     raw_channels = np.concatenate([
         sensor_data["pos"],
         sensor_data["vel"],
@@ -62,9 +64,15 @@ def embed_sensor_stream(sensor_data, d_model=64, seed=42):
     std = np.std(embedded, axis=-1, keepdims=True) + 1e-5
     normed = (embedded - mean) / std
 
-    scale = 1.0 / 128.0
-    int8_tokens = np.clip(np.round(normed / scale), -128, 127).astype(np.int8)
-    return torch.tensor(int8_tokens, dtype=torch.int8).unsqueeze(0), scale
+    # Q1.7 activation format: multiplication by 2**7 is the software form of
+    # the RTL binary-point shift. floor(x + 0.5) matches round-half-up logic.
+    scale = 2.0 ** -7
+    int8_tokens = np.clip(np.floor(normed * (1 << 7) + 0.5), -128, 127).astype(np.int8)
+    if as_numpy:
+        return int8_tokens[None, ...], scale
+    import torch
+
+    return torch.from_numpy(int8_tokens).unsqueeze(0), scale
 
 
 if __name__ == "__main__":

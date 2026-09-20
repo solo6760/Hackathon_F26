@@ -1,5 +1,15 @@
+"""Vectorized Test Vector Generator for the FC1 Datapath.
+
+Hardware specs:
+  - Input X: 16x64 Signed INT8 [-128, 127]
+  - Weights W: 64x128 Signed INT4 [-8, 7]
+  - Accumulator Y: 16x128 Signed INT32
+  - BRAM layout: Tile-major (8 groups x 4 K-tiles), LSB-first nibble packing (8 INT4/32-bit word)
+"""
+
 import os
 import random
+import numpy as np
 
 M, K, N = 16, 64, 128
 T = 16
@@ -8,53 +18,47 @@ CHECK_TILES = [(0, 0), (4, 1), (7, 3)]
 OUT = "vectors"
 
 
-def pack_row(vals):
-    words = []
-    for half in (vals[:8], vals[8:]):
-        w = 0
-        for i, v in enumerate(half):
-            w |= (v & 0xF) << (4 * i)
-        words.append(w)
-    return words
+def pack_weights_bram_fast(W):
+    """Vectorized tile-major BRAM packing (8 INT4 nibbles per 32-bit word, LSB-first)."""
+    W = np.asarray(W, dtype=np.int8)
+    tiled = W.reshape(K_TILES, T, GROUPS, T).transpose(2, 0, 1, 3)
+    nibbles = tiled.reshape(-1, 8).astype(np.uint32) & 0x0F
+    shifts = np.array([0, 4, 8, 12, 16, 20, 24, 28], dtype=np.uint32)
+    return np.bitwise_or.reduce(np.left_shift(nibbles, shifts), axis=1)
 
 
-def weight_tile(W, g, k):
-    words = []
-    for r in range(T):
-        words += pack_row(W[k * T + r][g * T:(g + 1) * T])
-    return words
+def unpack_weights_bram_fast(words):
+    """Vectorized unpacking of BRAM words back to (64, 128) for bitwise self-check."""
+    words = np.asarray(words, dtype=np.uint32)[:, None]
+    shifts = np.array([0, 4, 8, 12, 16, 20, 24, 28], dtype=np.uint32)
+    nibbles = np.bitwise_and(np.right_shift(words, shifts), 0x0F)
+    signed_w = np.where(nibbles >= 8, nibbles - 16, nibbles).astype(np.int8)
+    return signed_w.reshape(GROUPS, K_TILES, T, T).transpose(1, 2, 0, 3).reshape(K, N)
 
 
-def act_line(X, k):
-    line = 0
-    for m in range(M):
-        line |= (X[m][k] & 0xFF) << (8 * m)
-    return line
+def pack_act_lines_fast(X):
+    """Vectorized packaging of M=16 tokens across K=64 into 64 lines x 128-bit hex strings."""
+    X = np.asarray(X, dtype=np.int8)
+    u8_rev = X[::-1, :].astype(np.uint8)
+    return [bytes(u8_rev[:, k]).hex().upper() for k in range(K)]
 
 
-def write_hex(path, values, digits):
-    with open(path, "w") as f:
-        for v in values:
-            f.write(f"{v & ((1 << (4 * digits)) - 1):0{digits}X}\n")
-
-
-def sext(v, bits):
-    return v - (1 << bits) if v & (1 << (bits - 1)) else v
-
-
-def self_check(w_words, act_lines, Y):
-    acc = [[0] * N for _ in range(M)]
-    for g in range(GROUPS):
-        for k in range(K_TILES):
-            tile = w_words[(g * K_TILES + k) * 32:(g * K_TILES + k + 1) * 32]
-            for r in range(T):
-                kk = k * T + r
-                wrow = [sext((tile[2 * r + n // 8] >> (4 * (n % 8))) & 0xF, 4) for n in range(T)]
-                xcol = [sext((act_lines[kk] >> (8 * m)) & 0xFF, 8) for m in range(M)]
-                for m in range(M):
-                    for n in range(T):
-                        acc[m][g * T + n] += xcol[m] * wrow[n]
-    return acc == Y
+def batch_write_hex(filepath, values, width_chars=8):
+    """High-speed batch disk writer producing $readmemh-compliant hex files."""
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    if isinstance(values[0], str):
+        buf = "\n".join(values) + "\n"
+    elif width_chars == 8:
+        arr = np.asarray(values, dtype=np.uint32)
+        buf = "\n".join(f"{int(x):08X}" for x in arr.flatten()) + "\n"
+    elif width_chars == 2:
+        arr = np.asarray(values, dtype=np.uint8)
+        buf = "\n".join(f"{int(x):02X}" for x in arr.flatten()) + "\n"
+    else:
+        mask = (1 << (4 * width_chars)) - 1
+        buf = "\n".join(f"{int(x) & mask:0{width_chars}X}" for x in values) + "\n"
+    with open(filepath, "w") as f:
+        f.write(buf)
 
 
 def load_model_weights():
@@ -74,13 +78,13 @@ def load_model_weights():
         m = onnx.load(path)
         for init in m.graph.initializer:
             if init.name == "Quant_1_out0":
-                return numpy_helper.to_array(init).astype(int).tolist()
+                return numpy_helper.to_array(init).astype(np.int8)
         for init in m.graph.initializer:
             if init.name == "fc1.weight":
                 arr = numpy_helper.to_array(init)
                 scale = 0.017854882
-                arr_q = [[max(-8, min(7, int(round(v / scale)))) for v in row] for row in arr]
-                return [[arr_q[n][k] for n in range(128)] for k in range(64)]
+                arr_q = np.clip(np.round(arr / scale), -8, 7).astype(np.int8)
+                return arr_q.T
     except Exception:
         return None
     return None
@@ -93,37 +97,39 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    rng = random.Random(args.seed)
-    X = [[rng.randint(-128, 127) for _ in range(K)] for _ in range(M)]
+    rng = np.random.RandomState(args.seed)
+    X = rng.randint(-128, 128, size=(M, K), dtype=np.int8)
 
     W = load_model_weights() if args.source == "model" else None
     if W is None:
-        W = [[rng.randint(-8, 7) for _ in range(N)] for _ in range(K)]
+        W = rng.randint(-8, 8, size=(K, N), dtype=np.int8)
 
-    Y = [[sum(X[m][k] * W[k][n] for k in range(K)) for n in range(N)] for m in range(M)]
+    # Bit-accurate matrix multiplication: INT8 x INT4 -> INT32
+    Y = np.matmul(X.astype(np.int32), W.astype(np.int32))
 
-    M_REQ, SHIFT = 293, 16
-    Y_int8 = [
-        [max(-128, min(127, (Y[m][n] * M_REQ + (1 << (SHIFT - 1))) >> SHIFT)) for n in range(N)]
-        for m in range(M)
-    ]
+    # Bit-accurate fixed-point requantization for GeLU LUT (scale Sy = 1/32)
+    # Mult M_REQ = 293, Shift = 16, round-to-nearest (+ 0x8000), saturated clamp
+    scaled = np.right_shift((Y.astype(np.int64) * 293) + 0x8000, 16)
+    Y_int8 = np.clip(scaled, -128, 127).astype(np.int8)
 
-    w_words = []
-    for g in range(GROUPS):
-        for k in range(K_TILES):
-            w_words += weight_tile(W, g, k)
-    act_lines = [act_line(X, k) for k in range(K)]
+    w_words = pack_weights_bram_fast(W)
+    act_lines = pack_act_lines_fast(X)
 
-    assert self_check(w_words, act_lines, Y)
+    # Self-check
+    unpacked_w = unpack_weights_bram_fast(w_words)
+    assert np.array_equal(unpacked_w, W), "FC1 BRAM packing self-check failed!"
+    assert np.array_equal(np.matmul(X.astype(np.int32), unpacked_w.astype(np.int32)), Y)
 
     os.makedirs(OUT, exist_ok=True)
-    write_hex(f"{OUT}/act_fc1.hex", act_lines, 32)
-    write_hex(f"{OUT}/w_fc1.hex", w_words, 8)
-    write_hex(f"{OUT}/golden_fc1.hex", [v for row in Y for v in row], 8)
-    write_hex(f"{OUT}/golden_fc1_int8.hex", [v & 0xFF for row in Y_int8 for v in row], 2)
-    for g, k in CHECK_TILES:
-        write_hex(f"{OUT}/exp_w_g{g}_k{k}.hex", weight_tile(W, g, k), 8)
-        write_hex(f"{OUT}/exp_act_k{k}.hex", act_lines[k * T:(k + 1) * T], 32)
+    batch_write_hex(f"{OUT}/act_fc1.hex", act_lines, width_chars=32)
+    batch_write_hex(f"{OUT}/w_fc1.hex", w_words, width_chars=8)
+    batch_write_hex(f"{OUT}/golden_fc1.hex", Y, width_chars=8)
+    batch_write_hex(f"{OUT}/golden_fc1_int8.hex", Y_int8, width_chars=2)
 
-    flat = [v for row in Y for v in row]
-    print(f"wrote {OUT}/: {len(act_lines)} act lines, {len(w_words)} weight words, {len(flat)} golden words.")
+    # Check tiles
+    for g, k in CHECK_TILES:
+        tile_w = W[k * T:(k + 1) * T, g * T:(g + 1) * T]
+        batch_write_hex(f"{OUT}/exp_w_g{g}_k{k}.hex", pack_weights_bram_fast(np.pad(tile_w, ((0, 64-T), (0, 128-T))))[:32], width_chars=8)
+        batch_write_hex(f"{OUT}/exp_act_k{k}.hex", act_lines[k * T:(k + 1) * T], width_chars=32)
+
+    print(f"Vectorized FC1 export ({OUT}/): {len(act_lines)} act lines, {len(w_words)} weight words, {Y.size} golden words.")

@@ -1,78 +1,134 @@
+"""KERA precision/streaming ablation and three-tier RTL verification."""
+
+from __future__ import annotations
+
+import argparse
 import math
+from pathlib import Path
+
 import numpy as np
-import torch
-import torch.nn as nn
+
+try:  # Support both direct execution and ``import testing_py...``.
+    from .kera_fixed import error_metrics, matmul_accum, read_memh
+except ImportError:
+    from kera_fixed import error_metrics, matmul_accum, read_memh
 
 
-def run_ablation_study(seq_len=16, d_model=64, n_heads=2, d_mlp=128):
-    total_weights = 3 * (d_model * d_model) + (d_model * d_model) + 2 * (d_model * d_mlp)
+def load_hex_dump(filepath, bitwidth=32, is_signed=True):
+    path = Path(filepath)
+    return read_memh(path, bitwidth=bitwidth, signed=is_signed) if path.exists() else None
 
-    # 1. Weight storage
-    weights_kb_a = (total_weights * 1.0) / 1024.0
-    weights_kb_b = (total_weights * 0.5) / 1024.0
-    weights_kb_c = (total_weights * 0.5) / 1024.0
 
-    bram_a = math.ceil((total_weights * 8) / 36864)
-    bram_b = math.ceil((total_weights * 4) / 36864)
-    bram_c = math.ceil((total_weights * 4) / 36864)
+def _pow2_quantize(values, qmin, qmax):
+    """Quantize with a shift-compatible, per-tensor power-of-two scale."""
+    values = np.asarray(values, dtype=np.float64)
+    peak = float(np.max(np.abs(values)))
+    scale = 1.0 if peak == 0.0 else 2.0 ** math.ceil(math.log2(peak / qmax))
+    quantized = np.clip(np.floor(values / scale + 0.5), qmin, qmax).astype(np.int8)
+    return quantized, scale
 
-    # 2. Peak buffer storage
-    peak_buf_a = 9728
-    peak_buf_b = 9728
-    peak_buf_c = peak_buf_b - (2048 + 512) + 128  # Online softmax eliminates score matrix buffer
 
-    # 3. Memory traffic
-    wt_read_a = total_weights * 1
-    wt_read_b = total_weights * 0.5
-    wt_read_c = total_weights * 0.5
+def compute_metrics(ref_fp32, quant_ref, rtl_sim=None, *, quant_scale=1.0):
+    """Compare FP32, integer Python, and RTL in their correct numeric domains."""
+    reports = {}
+    quant = np.asarray(quant_ref)
+    quant_real = quant.astype(np.float64) * quant_scale
+    if ref_fp32 is not None:
+        reports["FP32_vs_Quant"] = error_metrics(ref_fp32, quant_real)
+    if rtl_sim is not None:
+        rtl = np.asarray(rtl_sim)
+        reports["Quant_vs_RTL"] = error_metrics(quant, rtl, exact=True)
+        if ref_fp32 is not None:
+            reports["FP32_vs_RTL"] = error_metrics(
+                ref_fp32, rtl.astype(np.float64) * quant_scale
+            )
+    return reports
 
-    traffic_a = wt_read_a + 6144 + 8192 + (1024 + 1024 + 2048 + 1024)
-    traffic_b = wt_read_b + 6144 + 8192 + (1024 + 1024 + 2048 + 1024)
-    traffic_c = wt_read_c + 6144 + 4096 + (1024 + 1024 + 2048 + 1024)
 
-    # 4. Latency
-    compute_cycles = 753664 // 256
-    cycles_a = compute_cycles + 512 + 256
-    cycles_b = compute_cycles + 256 + 256
-    cycles_c = compute_cycles + 128
-
-    # 5. Numerical accuracy
-    torch.manual_seed(42)
-    x_fp32 = torch.randn(1, seq_len, d_model)
-    w_fp32 = torch.randn(d_mlp, d_model) * 0.1
-    y_fp32 = torch.matmul(x_fp32, w_fp32.t())
-
-    x_int8 = torch.clamp(torch.round(x_fp32 * 127.0), -128, 127) / 127.0
-    w_int8 = torch.clamp(torch.round(w_fp32 * 127.0), -128, 127) / 127.0
-    y_a = torch.matmul(x_int8, w_int8.t())
-    mae_a = torch.mean(torch.abs(y_fp32 - y_a)).item()
-
-    w_int4 = torch.clamp(torch.round(w_fp32 * 70.0), -8, 7) / 70.0
-    y_b = torch.matmul(x_int8, w_int4.t())
-    mae_b = torch.mean(torch.abs(y_fp32 - y_b)).item()
-    mae_c = mae_b + 0.0065
-
-    return {
-        "A": {"weights_kb": weights_kb_a, "bram": bram_a, "traffic": traffic_a, "peak_buf": peak_buf_a, "cycles": cycles_a, "mae": mae_a},
-        "B": {"weights_kb": weights_kb_b, "bram": bram_b, "traffic": traffic_b, "peak_buf": peak_buf_b, "cycles": cycles_b, "mae": mae_b},
-        "C": {"weights_kb": weights_kb_c, "bram": bram_c, "traffic": traffic_c, "peak_buf": peak_buf_c, "cycles": cycles_c, "mae": mae_c},
+def run_ablation_model(seq_len=16, d_model=64, d_mlp=128, seed=42, return_vectors=False):
+    total_weights = 4 * d_model * d_model + 2 * d_model * d_mlp
+    weight_kb = {"A": total_weights / 1024.0, "B": total_weights / 2048.0}
+    bram = {
+        "A": math.ceil(total_weights * 8 / 36864),
+        "B": math.ceil(total_weights * 4 / 36864),
     }
+    mac_cycles = 753664 // 256
+
+    rng = np.random.default_rng(seed)
+    x_fp = rng.standard_normal((seq_len, d_model), dtype=np.float32)
+    w_fp = (rng.standard_normal((d_model, d_mlp), dtype=np.float32) * 0.1).astype(np.float32)
+    y_fp = x_fp @ w_fp
+    x_q, x_scale = _pow2_quantize(x_fp, -128, 127)
+    w8_q, w8_scale = _pow2_quantize(w_fp, -128, 127)
+    w4_q, w4_scale = _pow2_quantize(w_fp, -8, 7)
+    y8_acc = matmul_accum(x_q, w8_q, bits=32, overflow="wrap").astype(np.int32)
+    y4_acc = matmul_accum(x_q, w4_q, bits=32, overflow="wrap").astype(np.int32)
+    mae8 = error_metrics(y_fp, y8_acc * (x_scale * w8_scale))["mae"]
+    mae4 = error_metrics(y_fp, y4_acc * (x_scale * w4_scale))["mae"]
+
+    # Tiling changes scheduling and storage, not arithmetic; B and C therefore
+    # have identical numerical results unless the RTL adds another approximation.
+    results = {
+        "A": {"w_kb": weight_kb["A"], "bram": bram["A"], "buf": 9728,
+              "traffic": total_weights + 19456, "cycles": mac_cycles + 768, "mae": mae8},
+        "B": {"w_kb": weight_kb["B"], "bram": bram["B"], "buf": 9728,
+              "traffic": total_weights / 2 + 19456, "cycles": mac_cycles + 512, "mae": mae4},
+        "C": {"w_kb": weight_kb["B"], "bram": bram["B"], "buf": 7296,
+              "traffic": total_weights / 2 + 15360, "cycles": mac_cycles + 128, "mae": mae4},
+    }
+    if return_vectors:
+        return results, {"fp32": y_fp, "quant": y4_acc, "scale": x_scale * w4_scale}
+    return results
+
+
+def _print_metrics(reports):
+    for tier, report in reports.items():
+        print(f"[{tier}]")
+        for name, value in report.items():
+            print(f"  {name:<22}: {value}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="KERA ablation and RTL dump verification")
+    parser.add_argument("--rtl-dump", type=Path, help="raw Verilator/RTL output hex")
+    parser.add_argument("--quant-hex", "--golden-hex", dest="quant_hex", type=Path,
+                        help="integer Python golden corresponding to the RTL dump")
+    parser.add_argument("--fp32-npy", type=Path,
+                        help="optional FP32 baseline array corresponding to the dump")
+    parser.add_argument("--quant-scale", type=float, default=1.0,
+                        help="real-value scale for integer golden/RTL outputs")
+    parser.add_argument("--rtl-bitwidth", type=int, default=32)
+    parser.add_argument("--unsigned-rtl", action="store_true")
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+
+    results, generated = run_ablation_model(seed=args.seed, return_vectors=True)
+    print("KERA THREE-WAY ABLATION")
+    print(f"{'Metric':<30} {'A: INT8':>14} {'B: INT4':>14} {'C: KERA':>14}")
+    for label, key, fmt in (
+        ("Weight storage (KiB)", "w_kb", ".1f"),
+        ("BRAM36K count", "bram", ".0f"),
+        ("Peak buffer (bytes)", "buf", ".0f"),
+        ("Memory traffic (bytes)", "traffic", ".0f"),
+        ("Latency (cycles)", "cycles", ".0f"),
+        ("MAE vs FP32", "mae", ".6f"),
+    ):
+        vals = [format(results[cfg][key], fmt) for cfg in "ABC"]
+        print(f"{label:<30} {vals[0]:>14} {vals[1]:>14} {vals[2]:>14}")
+
+    if args.rtl_dump:
+        rtl = load_hex_dump(args.rtl_dump, args.rtl_bitwidth, not args.unsigned_rtl)
+        if rtl is None:
+            parser.error(f"RTL dump does not exist: {args.rtl_dump}")
+        if args.quant_hex:
+            quant = load_hex_dump(args.quant_hex, args.rtl_bitwidth, not args.unsigned_rtl)
+            fp32 = np.load(args.fp32_npy) if args.fp32_npy else None
+            scale = args.quant_scale
+        else:
+            quant, fp32, scale = generated["quant"], generated["fp32"], generated["scale"]
+        print("\nTHREE-TIER NUMERICAL VERIFICATION")
+        _print_metrics(compute_metrics(fp32, quant, rtl, quant_scale=scale))
 
 
 if __name__ == "__main__":
-    results = run_ablation_study()
-    print("=" * 80)
-    print("KERA THREE-WAY ABLATION STUDY RESULTS (Proposal Item 5)")
-    print("=" * 80)
-    print(f"{'Metric':<32} | {'Config A (Baseline)':<18} | {'Config B (INT4)':<16} | {'Config C (KERA)':<16}")
-    print("-" * 80)
-    print(f"{'Weight Precision':<32} | {'INT8':<18} | {'INT4':<16} | {'INT4':<16}")
-    print(f"{'Attention Scheme':<32} | {'Materialized':<18} | {'Materialized':<16} | {'Tiled (Online)':<16}")
-    print(f"{'Weight Storage (KB)':<32} | {results['A']['weights_kb']:<18.1f} | {results['B']['weights_kb']:<16.1f} | {results['C']['weights_kb']:<16.1f}")
-    print(f"{'Weight BRAM36K Count':<32} | {results['A']['bram']:<18} | {results['B']['bram']:<16} | {results['C']['bram']:<16}")
-    print(f"{'Peak Buffer Storage (Bytes)':<32} | {results['A']['peak_buf']:<18} | {results['B']['peak_buf']:<16} | {results['C']['peak_buf']:<16}")
-    print(f"{'Total Memory Traffic (Bytes)':<32} | {results['A']['traffic']:<18} | {results['B']['traffic']:<16} | {results['C']['traffic']:<16}")
-    print(f"{'Latency @ 183.4MHz (Cycles)':<32} | {results['A']['cycles']:<18} | {results['B']['cycles']:<16} | {results['C']['cycles']:<16}")
-    print(f"{'Latency @ 183.4MHz (Time)':<32} | {results['A']['cycles']/183.4:<15.2f} us | {results['B']['cycles']/183.4:<13.2f} us | {results['C']['cycles']/183.4:<13.2f} us")
-    print(f"{'Numerical Error (MAE vs FP32)':<32} | {results['A']['mae']:<18.5f} | {results['B']['mae']:<16.5f} | {results['C']['mae']:<16.5f}")
-    print("=" * 80)
+    main()

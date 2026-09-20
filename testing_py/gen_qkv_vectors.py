@@ -1,134 +1,140 @@
-import math
-import os
-import random
+"""Vectorized, bit-accurate Q/K/V and attention vector generation.
+
+INT4 weights use LSB-first nibble order: the first logical weight occupies
+word[3:0], the second word[7:4], and so on. Weight words are tile-major.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
 import numpy as np
 
+try:  # Support both direct execution and ``import testing_py...``.
+    from .kera_fixed import matmul_accum, pack_int4, requantize, unpack_int4, write_memh
+except ImportError:
+    from kera_fixed import matmul_accum, pack_int4, requantize, unpack_int4, write_memh
+
 M, D, H, DH, T = 16, 64, 2, 32, 16
+K_TILES, GROUPS = D // T, D // T
 OUT = "vectors_qkv"
+ACC_BITS = 32
+PROJ_SHIFT = 6
+ATTN_MULT, ATTN_SHIFT = 45, 6  # quarter-step index: (1/sqrt(32)) * 4 ~= 45/64
+EXP_Q_BITS = 15
+EXP_LUT_Q15 = np.floor(
+    np.exp(np.arange(-32, 1) / 4.0) * ((1 << EXP_Q_BITS) - 1) + 0.5
+).astype(np.int32)
 
 
-def pack_row(vals):
-    words = []
-    for half in (vals[:8], vals[8:]):
-        w = 0
-        for i, v in enumerate(half):
-            w |= (v & 0xF) << (4 * i)
-        words.append(w)
-    return words
+def pack_weights_bram_fast(weights):
+    """Pack a (64, 64) matrix into tile-major uint32 BRAM words."""
+    weights = np.asarray(weights, dtype=np.int8)
+    if weights.shape != (D, D):
+        raise ValueError(f"expected ({D}, {D}), got {weights.shape}")
+    tiled = weights.reshape(K_TILES, T, GROUPS, T).transpose(2, 0, 1, 3)
+    return pack_int4(tiled, word_bits=32, lsb_first=True)
 
 
-def weight_tile(W, g, k):
-    words = []
-    for r in range(T):
-        words += pack_row(W[k * T + r][g * T:(g + 1) * T])
-    return words
+def unpack_weights_bram_fast(words, K=D, N=D):
+    """Unpack tile-major uint32 BRAM words to a (K, N) matrix."""
+    if K % T or N % T:
+        raise ValueError("K and N must be multiples of the tile size")
+    tiled = unpack_int4(words, word_bits=32, count=K * N).reshape(N // T, K // T, T, T)
+    return tiled.transpose(1, 2, 0, 3).reshape(K, N)
 
 
-def pack_weights_bram(W):
-    words = []
-    for g in range(D // T):
-        for k in range(D // T):
-            words += weight_tile(W, g, k)
-    return words
+def pack_act_lines_fast(activations):
+    """Return 64 128-bit words; token 0 is the least-significant byte."""
+    activations = np.asarray(activations, dtype=np.int8)
+    if activations.shape != (M, D):
+        raise ValueError(f"expected ({M}, {D}), got {activations.shape}")
+    return np.ascontiguousarray(activations.T[:, ::-1]).view(np.uint8)
 
 
-def act_line(X, k):
-    line = 0
-    for m in range(M):
-        line |= (X[m][k] & 0xFF) << (8 * m)
-    return line
+def softmax_lut_fixed(scores_int32):
+    """Integer attention scaling, Q15 exp LUT, and integer normalization."""
+    scores = np.asarray(scores_int32, dtype=np.int64)
+    quarter_steps = requantize(
+        scores, multiplier=ATTN_MULT, shift=ATTN_SHIFT, out_bits=32, rounding="half_up"
+    )
+    delta = quarter_steps - np.max(quarter_steps, axis=-1, keepdims=True)
+    lut_index = np.clip(delta, -32, 0).astype(np.intp) + 32
+    exponent = EXP_LUT_Q15[lut_index].astype(np.int64)
+    denominator = np.sum(exponent, axis=-1, keepdims=True, dtype=np.int64)
+    # Integer division mirrors an RTL normalizer; denominator/2 rounds half-up.
+    return np.clip((exponent * 127 + denominator // 2) // denominator, 0, 127).astype(np.int8)
 
 
-def write_hex(path, values, digits):
-    with open(path, "w") as f:
-        for v in values:
-            f.write(f"{v & ((1 << (4 * digits)) - 1):0{digits}X}\n")
+def _write_wide_memh(path, byte_rows):
+    rows = np.asarray(byte_rows, dtype=np.uint8)
+    text = "\n".join(row.tobytes().hex().upper() for row in rows) + "\n"
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
 
 
-def sext(v, bits):
-    return v - (1 << bits) if v & (1 << (bits - 1)) else v
+def generate_attention_vectors(seed=42, out_dir=OUT):
+    rng = np.random.RandomState(seed)
+    try:
+        try:
+            from .sensor_fusion import embed_sensor_stream, generate_ares_trajectory
+        except ImportError:
+            from sensor_fusion import embed_sensor_stream, generate_ares_trajectory
 
+        tokens, _ = embed_sensor_stream(
+            generate_ares_trajectory(M, seed=seed), D, seed, as_numpy=True
+        )
+        activations = tokens[0]
+    except ImportError:
+        activations = rng.randint(-128, 128, size=(M, D), dtype=np.int8)
 
-def self_check_proj(w_words, act_lines, Y, K=64, N=64):
-    k_tiles, groups = K // T, N // T
-    acc = [[0] * N for _ in range(M)]
-    for g in range(groups):
-        for k in range(k_tiles):
-            tile = w_words[(g * k_tiles + k) * 32:(g * k_tiles + k + 1) * 32]
-            for r in range(T):
-                kk = k * T + r
-                wrow = [sext((tile[2 * r + n // 8] >> (4 * (n % 8))) & 0xF, 4) for n in range(T)]
-                xcol = [sext((act_lines[kk] >> (8 * m)) & 0xFF, 8) for m in range(M)]
-                for m in range(M):
-                    for n in range(T):
-                        acc[m][g * T + n] += xcol[m] * wrow[n]
-    return acc == Y
+    weights = rng.randint(-8, 8, size=(3, D, D), dtype=np.int8)
+    packed = tuple(pack_weights_bram_fast(weight) for weight in weights)
+    for name, words, weight in zip("QKV", packed, weights):
+        if not np.array_equal(unpack_weights_bram_fast(words), weight):
+            raise AssertionError(f"W_{name} BRAM pack round-trip failed")
+
+    # Wide host operations avoid accidental overflow; explicitly narrow every
+    # accumulator result to the signed 32-bit RTL register.
+    projections = np.stack([
+        matmul_accum(activations, weight, bits=ACC_BITS, overflow="wrap") for weight in weights
+    ])
+    projected_int8 = requantize(
+        projections, shift=PROJ_SHIFT, out_bits=8, rounding="half_up"
+    ).astype(np.int8)
+    q_h, k_h, v_h = (
+        value.reshape(M, H, DH).transpose(1, 0, 2) for value in projected_int8
+    )
+    scores = matmul_accum(q_h, k_h.transpose(0, 2, 1), bits=ACC_BITS, overflow="wrap")
+    probabilities = softmax_lut_fixed(scores)
+    context = matmul_accum(probabilities, v_h, bits=ACC_BITS, overflow="wrap")
+
+    out = Path(out_dir)
+    for stem, words in zip(("w_q", "w_k", "w_v"), packed):
+        write_memh(out / f"{stem}.hex", words, 32)
+    _write_wide_memh(out / "act_in.hex", pack_act_lines_fast(activations))
+    for stem, values in zip(("golden_q", "golden_k", "golden_v"), projections):
+        write_memh(out / f"{stem}.hex", values, 32)
+    for head in range(H):
+        write_memh(out / f"golden_scores_h{head}.hex", scores[head], 32)
+        write_memh(out / f"golden_probs_h{head}.hex", probabilities[head], 8)
+        write_memh(out / f"golden_context_h{head}.hex", context[head], 32)
+
+    print(f"Generated bit-accurate vectors in {out}/")
+    print(f"  weights: {packed[0].size} x 32-bit words/matrix, LSB-first INT4")
+    print(f"  activations: {D} x {M * 8}-bit words, token 0 in bits [7:0]")
+    print(f"  attention: {H} heads, integer quarter-step scale {ATTN_MULT}/2^{ATTN_SHIFT}")
+    return {
+        "activations": activations,
+        "weights": weights,
+        "projections": projections,
+        "projected_int8": projected_int8,
+        "scores": scores,
+        "probabilities": probabilities,
+        "context": context,
+    }
 
 
 if __name__ == "__main__":
-    rng = random.Random(42)
-
-    try:
-        from sensor_fusion import generate_ares_trajectory, embed_sensor_stream
-        data = generate_ares_trajectory(seq_len=M, seed=42)
-        tokens, _ = embed_sensor_stream(data, d_model=D, seed=42)
-        X = tokens.squeeze(0).numpy().tolist()
-    except Exception:
-        X = [[rng.randint(-128, 127) for _ in range(D)] for _ in range(M)]
-
-    W_Q = [[rng.randint(-8, 7) for _ in range(D)] for _ in range(D)]
-    W_K = [[rng.randint(-8, 7) for _ in range(D)] for _ in range(D)]
-    W_V = [[rng.randint(-8, 7) for _ in range(D)] for _ in range(D)]
-
-    Q = [[sum(X[m][k] * W_Q[k][n] for k in range(D)) for n in range(D)] for m in range(M)]
-    K_proj = [[sum(X[m][k] * W_K[k][n] for k in range(D)) for n in range(D)] for m in range(M)]
-    V = [[sum(X[m][k] * W_V[k][n] for k in range(D)) for n in range(D)] for m in range(M)]
-
-    w_words_q = pack_weights_bram(W_Q)
-    w_words_k = pack_weights_bram(W_K)
-    w_words_v = pack_weights_bram(W_V)
-    act_lines = [act_line(X, k) for k in range(D)]
-
-    assert self_check_proj(w_words_q, act_lines, Q)
-    assert self_check_proj(w_words_k, act_lines, K_proj)
-    assert self_check_proj(w_words_v, act_lines, V)
-
-    def requant8(mat):
-        return [[max(-128, min(127, (val + 32) >> 6)) for val in row] for row in mat]
-
-    Q_int8 = requant8(Q)
-    K_int8 = requant8(K_proj)
-    V_int8 = requant8(V)
-
-    scores_h0 = [[sum(Q_int8[m][d] * K_int8[j][d] for d in range(DH)) for j in range(M)] for m in range(M)]
-    scores_h1 = [[sum(Q_int8[m][DH + d] * K_int8[j][DH + d] for d in range(DH)) for j in range(M)] for m in range(M)]
-
-    def softmax_row(row):
-        max_val = max(row)
-        shifted = [max(-8.0, (v - max_val) * 0.1768) for v in row]
-        exp_vals = [math.exp(v) for v in shifted]
-        s = sum(exp_vals)
-        return [int(round((e / s) * 127)) for e in exp_vals]
-
-    probs_h0 = [softmax_row(r) for r in scores_h0]
-    probs_h1 = [softmax_row(r) for r in scores_h1]
-
-    context_h0 = [[sum(probs_h0[m][j] * V_int8[j][d] for j in range(M)) for d in range(DH)] for m in range(M)]
-    context_h1 = [[sum(probs_h1[m][j] * V_int8[j][DH + d] for j in range(M)) for d in range(DH)] for m in range(M)]
-
-    os.makedirs(OUT, exist_ok=True)
-    write_hex(f"{OUT}/w_q.hex", w_words_q, 8)
-    write_hex(f"{OUT}/w_k.hex", w_words_k, 8)
-    write_hex(f"{OUT}/w_v.hex", w_words_v, 8)
-    write_hex(f"{OUT}/act_in.hex", act_lines, 32)
-    write_hex(f"{OUT}/golden_q.hex", [v for r in Q for v in r], 8)
-    write_hex(f"{OUT}/golden_k.hex", [v for r in K_proj for v in r], 8)
-    write_hex(f"{OUT}/golden_v.hex", [v for r in V for v in r], 8)
-    write_hex(f"{OUT}/golden_scores_h0.hex", [v for r in scores_h0 for v in r], 8)
-    write_hex(f"{OUT}/golden_scores_h1.hex", [v for r in scores_h1 for v in r], 8)
-    write_hex(f"{OUT}/golden_probs_h0.hex", [v for r in probs_h0 for v in r], 2)
-    write_hex(f"{OUT}/golden_probs_h1.hex", [v for r in probs_h1 for v in r], 2)
-    write_hex(f"{OUT}/golden_context_h0.hex", [v for r in context_h0 for v in r], 8)
-    write_hex(f"{OUT}/golden_context_h1.hex", [v for r in context_h1 for v in r], 8)
-
-    print(f"Generated Q/K/V vectors in {OUT}/: {len(w_words_q)} words/proj, {len(act_lines)} act lines.")
+    generate_attention_vectors()
