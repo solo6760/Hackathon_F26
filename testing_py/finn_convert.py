@@ -1,13 +1,15 @@
 import numpy as np
+from pathlib import Path
 
 from qonnx.core.modelwrapper import ModelWrapper
 import qonnx.core.onnx_exec as oxe
 from qonnx.util.cleanup import cleanup
 from finn.transformation.qonnx.convert_qonnx_to_finn import ConvertQONNXtoFINN
 
-original_path = "transformer_layer.onnx"
-cleaned_path = "transformer_layer_clean.onnx"
-finn_path = "transformer_layer_finn.onnx"
+script_dir = Path(__file__).resolve().parent
+original_path = script_dir / "transformer_layer.onnx"
+cleaned_path = script_dir / "transformer_layer_clean.onnx"
+finn_path = script_dir / "transformer_layer_finn.onnx"
 
 # Clean the QONNX model
 cleanup(original_path, out_file=cleaned_path)
@@ -19,7 +21,8 @@ qonnx_model = ModelWrapper(cleaned_path)
 input_name = qonnx_model.graph.input[0].name
 
 # Same input shape as your transformer layer
-test_input = np.random.randn(1, 16, 64).astype(np.float32)
+rng = np.random.default_rng(42)
+test_input = rng.standard_normal((1, 64, 64), dtype=np.float32)
 
 # Run QONNX model
 qonnx_output_dict = oxe.execute_onnx(
