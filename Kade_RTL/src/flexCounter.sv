@@ -1,13 +1,13 @@
 module flexCounter #(
     SIZE = 8
 ) (
-    logic input clk,
-    logic input n_rst,
-    logic input [SIZE-1:0] roll_val,
-    logic input clear,
-    logic input count_en,
-    logic output [SIZE-1:0] count_out,
-    logic output roll_flag
+    input logic clk,
+    input logic n_rst,
+    input logic [SIZE-1:0] roll_val,
+    input logic clear,
+    input logic count_en,
+    output logic [SIZE-1:0] count_out,
+    output logic roll_flag
 );
 
     logic [SIZE-1:0] val, next_val;
@@ -25,7 +25,7 @@ module flexCounter #(
         clear ? 0 :
         (count_en ?
         (val >= roll_val ?
-        1 : val + 1) : val);
+        0 : val + 1) : val);
 
         count_out = val;
 

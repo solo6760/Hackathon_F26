@@ -6,10 +6,11 @@ module PU #(
     input logic signed [7:0] int8,
     input logic signed [3:0] int4,
     input logic signed [31:0] prevSum,
-    input logic validInput,
+    input logic acc_clr,
+    input logic acc_en,
     output logic signed [31:0] out,
     output logic signed [7:0] rightPass,
-    output logic signed [3:0] downPass
+    output logic signed [3:0] downPass,
 );
 
     logic signed [31:0] sum, next_sum;
@@ -22,7 +23,7 @@ module PU #(
             int8reg <= {8{1'b0}};
             int4reg <= {4{1'b0}};
         end
-        else if(validInput) begin
+        else begin
             sum <= next_sum;
             int8reg <= next8;
             int4reg <= next4;
@@ -30,10 +31,10 @@ module PU #(
     end
 
     always_comb begin
-        next8 = int8;
-        next4 = int4;
+        next8 = acc_en ? int8 : int8reg;
+        next4 = acc_en ? int4 : int4reg;
 
-        next_sum = (int8reg * int4reg) + prevSum;
+        next_sum = acc_clr ? {32{1'b0}} : acc_en ? (int8reg * int4reg) + prevSum : prevSum;
         out = sum;
 
         rightPass = int8reg;
