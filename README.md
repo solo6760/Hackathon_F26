@@ -129,6 +129,10 @@ Fedora
 ```bash
 sudo dnf install iverilog gtkwave
 ```
+macOS - brew
+```bash
+brew install icarus-verilog
+```
 
 QONNX export requires Brevitas and ONNX:
 
