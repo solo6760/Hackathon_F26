@@ -1,11 +1,3 @@
-================================================================================
-FC1 HARDWARE SPECIFICATION, WEIGHT EXPORT & REQUANTIZATION SUMMARY
-================================================================================
-Date: 2026-09-19
-Project: Hackathon F26 - Quantized Transformer Accelerator
-Target Layer: FFN Layer 1 (fc1 / ffn1)
-
-
 --------------------------------------------------------------------------------
 1. WEIGHT DIMENSIONS & TRANSPOSITION
 --------------------------------------------------------------------------------

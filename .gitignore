@@ -1,2 +1,6 @@
 fc1_spec_and_vectors_summary.txt
 proposal.pdf
+*.hex
+vectors/
+vectors_qkv/
+__pycache__/
