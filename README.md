@@ -121,8 +121,13 @@ python3 -m pip install numpy torch
 
 RTL GEMM simulation also requires Icarus Verilog:
 
+Debian/Ubuntu
 ```bash
 sudo apt install iverilog
+```
+Fedora
+```bash
+sudo dnf install iverilog gtkwave
 ```
 
 QONNX export requires Brevitas and ONNX:
