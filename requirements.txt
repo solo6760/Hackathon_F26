@@ -1,0 +1,12 @@
+# Core training, quantized reference, and vector generation
+numpy>=1.24,<3
+torch>=2.1
+
+# QONNX export and validation
+brevitas>=0.12,<1
+onnx>=1.15,<2
+qonnx>=0.4,<2
+onnxruntime>=1.17,<2
+
+# FINN is intentionally omitted. Install and run FINN through its supported
+# Docker/Conda environment before using `make finn-convert`.

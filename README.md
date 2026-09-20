@@ -116,7 +116,7 @@ Each developer should regenerate them from the committed model artifacts.
 Core Python flow:
 
 ```bash
-python3 -m pip install numpy torch
+python3 -m pip install -r requirements.txt
 ```
 
 **RTL GEMM simulation also requires Icarus Verilog**:
@@ -132,12 +132,6 @@ sudo dnf install iverilog gtkwave
 macOS - brew
 ```bash
 brew install icarus-verilog
-```
-
-QONNX export requires Brevitas and ONNX:
-
-```bash
-python3 -m pip install brevitas onnx
 ```
 
 FINN conversion requires a separately configured FINN environment. It is not a
