@@ -5,3 +5,4 @@ vectors/
 vectors_qkv/
 __pycache__/
 :memory:.ses
+fc1_spec_and_vectors_summary.txt

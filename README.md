@@ -119,7 +119,7 @@ Core Python flow:
 python3 -m pip install numpy torch
 ```
 
-RTL GEMM simulation also requires Icarus Verilog:
+**RTL GEMM simulation also requires Icarus Verilog**:
 
 Debian/Ubuntu
 ```bash
