@@ -1,4 +1,4 @@
-module PE #(
+module PU #(
     
 ) (
     input logic clk,
