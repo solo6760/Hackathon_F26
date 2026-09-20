@@ -55,7 +55,7 @@ def run_ablation_model(seq_len=64, d_model=64, n_heads=1, d_mlp=128, seed=42, re
 
     # MAC counts scaled to seq_len
     total_macs = seq_len * (4 * d_model * d_model + 2 * d_model * d_mlp + d_model * seq_len + seq_len * d_model)
-    mac_cycles = total_macs // 256
+    mac_cycles = (total_macs + 255) // 256
 
     # Dynamic buffer footprint (Bytes):
     # Materialized (Config A & B) must store the full S x S INT32 score matrix and INT8 prob matrix
@@ -73,7 +73,6 @@ def run_ablation_model(seq_len=64, d_model=64, n_heads=1, d_mlp=128, seed=42, re
     # Projections and FFN: seq_len * d_model * 10
     base_act_traffic = seq_len * d_model * 10
     # Config A & B write and read the intermediate S x S score matrix
-    traffic_materialized = total_weights * (1.0 if True else 0.5) + base_act_traffic + 2 * score_matrix_bytes
     traffic_tiled = total_weights * 0.5 + base_act_traffic  # eliminates intermediate score matrix traffic
 
     rng = np.random.default_rng(seed)

@@ -4,3 +4,4 @@ proposal.pdf
 vectors/
 vectors_qkv/
 __pycache__/
+:memory:.ses

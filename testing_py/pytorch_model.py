@@ -8,8 +8,19 @@ import torch.nn as nn
 
 GELU_SCALE = 1.0 / 32.0  # 2^(-5)
 EXP_STEP, EXP_MIN, EXP_MAX = 0.25, -8.0, 0.0
+ACT_SCALE = 1.0 / 32.0
 ACC_BITS = 32
-ATTN_MULT, ATTN_SHIFT = 45, 6  # score-to-quarter-LUT-step scale
+
+
+def attention_index_scale(head_dim, activation_scale=ACT_SCALE):
+    """Fixed multiplier for converting QK accumulators to quarter-step LUT indices."""
+    factor = 4.0 * activation_scale * activation_scale / math.sqrt(head_dim)
+    shift = 24
+    multiplier = max(1, round(factor * (1 << shift)))
+    while shift and multiplier % 2 == 0:
+        multiplier //= 2
+        shift -= 1
+    return multiplier, shift
 
 
 def quantize_int4_weights(weight_tensor):
@@ -20,8 +31,8 @@ def quantize_int4_weights(weight_tensor):
     return q, scale
 
 
-def quantize_int8_act(act_tensor, scale=1.0 / 128.0):
-    """Symmetric INT8 quantization [-128, 127] using fixed scale (default 2^(-7))."""
+def quantize_int8_act(act_tensor, scale=ACT_SCALE):
+    """Symmetric INT8 quantization using the calibrated Q3.5 activation scale."""
     q = torch.clamp(torch.floor(act_tensor / scale + 0.5), -128, 127).to(torch.int8)
     return q, scale
 
@@ -48,10 +59,10 @@ EXP_LUT_Q15 = torch.tensor(
 )
 
 
-def softmax_lut_rtl(scores_int32):
+def softmax_lut_rtl(scores_int32, multiplier=1, shift=15):
     """Integer score scaling, Q15 exponential lookup, and integer normalization."""
     quarter_steps = requantize_rtl(
-        scores_int32, mult=ATTN_MULT, shift=ATTN_SHIFT, out_bits=32
+        scores_int32, mult=multiplier, shift=shift, out_bits=32
     ).to(torch.int64)
     delta = quarter_steps - torch.max(quarter_steps, dim=-1, keepdim=True).values
     idx = torch.clamp(delta, -32, 0).long() + 32
@@ -104,8 +115,10 @@ class QuantizedLinearRTL(nn.Module):
     def forward_rtl(self, x_int8):
         """Strict hardware integer datapath: INT8 x INT4 -> INT32 accum -> requantize INT8."""
         # Matrix multiply in INT32: (B, S, in_features) x (in_features, out_features)
-        accum_wide = torch.matmul(x_int8.to(torch.int64), self.w_int4.t().to(torch.int64))
-        accum_int32 = narrow_accumulator_rtl(accum_wide)
+        # Target dimensions are bounded far below INT32 overflow; using INT32
+        # is both cycle-faithful and substantially faster than host INT64 GEMM.
+        accum = torch.matmul(x_int8.to(torch.int32), self.w_int4.t().to(torch.int32))
+        accum_int32 = narrow_accumulator_rtl(accum)
         # Fixed-point requantization unit
         return requantize_rtl(accum_int32, mult=self.req_mult, shift=self.req_shift)
 
@@ -121,36 +134,55 @@ class SmallTransformerBlockRTL(nn.Module):
         self.d_model = d_model
         self.n_heads = n_heads
         self.head_dim = d_model // n_heads
+        if d_model % n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        self.attn_mult, self.attn_shift = attention_index_scale(self.head_dim)
 
-        # Projections: default requant shift >>> 6 for projections, mult=293 >>> 16 for FFN
-        self.q_proj = QuantizedLinearRTL(d_model, d_model, req_mult=None, req_shift=6)
-        self.k_proj = QuantizedLinearRTL(d_model, d_model, req_mult=None, req_shift=6)
-        self.v_proj = QuantizedLinearRTL(d_model, d_model, req_mult=None, req_shift=6)
-        self.out_proj = QuantizedLinearRTL(d_model, d_model, req_mult=None, req_shift=6)
-
-        # FFN: FC1 uses mult=293 >>> 16 to scale into GeLU step (1/32)
-        self.ffn1 = QuantizedLinearRTL(d_model, d_mlp, req_mult=293, req_shift=16)
-        self.ffn2 = QuantizedLinearRTL(d_mlp, d_model, req_mult=None, req_shift=6)
+        # Requantization shifts are derived from power-of-two weight scales
+        # below, then replaced by the exported shifts when a checkpoint loads.
+        self.q_proj = QuantizedLinearRTL(d_model, d_model, req_mult=None, req_shift=0)
+        self.k_proj = QuantizedLinearRTL(d_model, d_model, req_mult=None, req_shift=0)
+        self.v_proj = QuantizedLinearRTL(d_model, d_model, req_mult=None, req_shift=0)
+        self.out_proj = QuantizedLinearRTL(d_model, d_model, req_mult=None, req_shift=0)
+        self.ffn1 = QuantizedLinearRTL(d_model, d_mlp, req_mult=None, req_shift=0)
+        self.ffn2 = QuantizedLinearRTL(d_mlp, d_model, req_mult=None, req_shift=0)
+        # Random-model defaults are also scale-consistent; checkpoint loading
+        # replaces these with its exported per-layer shifts.
+        for layer in (self.q_proj, self.k_proj, self.v_proj, self.out_proj):
+            layer.req_shift = int(round(-math.log2(layer.w_scale)))
+        self.ffn1.req_mult = None
+        self.ffn1.req_shift = int(round(-math.log2(self.ffn1.w_scale))) + 2
+        self.ffn2.req_shift = int(round(-math.log2(self.ffn2.w_scale))) - 2
 
     def load_trained_checkpoint(self, checkpoint_path="testing_py/kera_sensor_fusion_trained.pt"):
-        import os
-        if not os.path.exists(checkpoint_path):
+        from pathlib import Path
+
+        checkpoint_path = Path(checkpoint_path)
+        if not checkpoint_path.exists():
             return False
         ckpt = torch.load(checkpoint_path, map_location="cpu")
+        config = ckpt["config"]
+        expected = (self.d_model, self.n_heads)
+        actual = (config["d_model"], config["n_heads"])
+        if actual != expected:
+            raise ValueError(f"checkpoint model/head dimensions {actual} do not match {expected}")
+        shifts = ckpt["requant_shifts"]
+        scales = ckpt["scales"]
         qw = ckpt["quantized_weights"]
         sd = ckpt["model_state_dict"]
-        self.q_proj.w_int4.copy_(qw["w_q"])
-        self.q_proj.w_fp32.copy_(sd["q_proj.weight"])
-        self.k_proj.w_int4.copy_(qw["w_k"])
-        self.k_proj.w_fp32.copy_(sd["k_proj.weight"])
-        self.v_proj.w_int4.copy_(qw["w_v"])
-        self.v_proj.w_fp32.copy_(sd["v_proj.weight"])
-        self.out_proj.w_int4.copy_(qw["w_out"])
-        self.out_proj.w_fp32.copy_(sd["out_proj.weight"])
-        self.ffn1.w_int4.copy_(qw["w_ffn1"])
-        self.ffn1.w_fp32.copy_(sd["ffn1.weight"])
-        self.ffn2.w_int4.copy_(qw["w_ffn2"])
-        self.ffn2.w_fp32.copy_(sd["ffn2.weight"])
+        for key, layer, state_key in (
+            ("w_q", self.q_proj, "q_proj.weight"),
+            ("w_k", self.k_proj, "k_proj.weight"),
+            ("w_v", self.v_proj, "v_proj.weight"),
+            ("w_out", self.out_proj, "out_proj.weight"),
+            ("w_ffn1", self.ffn1, "ffn1.weight"),
+            ("w_ffn2", self.ffn2, "ffn2.weight"),
+        ):
+            layer.w_int4.copy_(qw[key])
+            layer.w_fp32.copy_(sd[state_key])
+            layer.w_scale = scales[key]
+            layer.req_mult = None
+            layer.req_shift = shifts[key]
         return True
 
     def forward_rtl(self, x_int8):
@@ -169,15 +201,15 @@ class SmallTransformerBlockRTL(nn.Module):
 
         # 3. Scaled dot-product: QK^T in INT32
         scores_int32 = narrow_accumulator_rtl(
-            torch.matmul(q_h.to(torch.int64), k_h.transpose(-2, -1).to(torch.int64))
+            torch.matmul(q_h.to(torch.int32), k_h.transpose(-2, -1).to(torch.int32))
         )
 
         # 4. Softmax LUT -> INT8 probabilities [0, 127]
-        probs = softmax_lut_rtl(scores_int32)
+        probs = softmax_lut_rtl(scores_int32, self.attn_mult, self.attn_shift)
 
         # 5. Context accumulation: P x V in INT32 -> requantize to INT8 (>>> 7)
         context_int32 = narrow_accumulator_rtl(
-            torch.matmul(probs.to(torch.int64), v_h.to(torch.int64))
+            torch.matmul(probs.to(torch.int32), v_h.to(torch.int32))
         )
         context_int8 = requantize_rtl(context_int32, mult=None, shift=7)
         context_merged = context_int8.transpose(1, 2).contiguous().view(B, S, D)
@@ -221,7 +253,7 @@ def evaluate_numerical_fidelity(model, dummy_input_fp32):
     with torch.no_grad():
         out_fp32 = model.forward_fp32(dummy_input_fp32)
         # Quantize input to INT8
-        x_int8, in_scale = quantize_int8_act(dummy_input_fp32, scale=1.0 / 128.0)
+        x_int8, in_scale = quantize_int8_act(dummy_input_fp32, scale=ACT_SCALE)
         out_rtl_int8 = model.forward_rtl(x_int8)
 
         # Dequantize RTL output for fair comparison
@@ -251,7 +283,12 @@ if __name__ == "__main__":
     if loaded:
         print("Loaded real trained weights from testing_py/kera_sensor_fusion_trained.pt")
 
-    dummy_in = torch.randn(1, 64, 64)
+    try:
+        from .sensor_fusion import embed_sensor_stream, generate_ares_trajectory
+    except ImportError:
+        from sensor_fusion import embed_sensor_stream, generate_ares_trajectory
+    sensor_tokens, _ = embed_sensor_stream(generate_ares_trajectory(64, seed=999), 64, seed=42)
+    dummy_in = sensor_tokens.float() * ACT_SCALE
 
     metrics = evaluate_numerical_fidelity(model, dummy_in)
     print("Bit-Accurate RTL Model vs FP32 Baseline (S=64 tokens, H=1 head):")

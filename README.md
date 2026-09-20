@@ -10,11 +10,11 @@ This repo holds the Python golden models, Brevitas QONNX export scripts, and RTL
 
 | Parameter | Specification | Notes |
 | :--- | :--- | :--- |
-| **Activations** | Signed INT8 (`[-128, 127]`) | Per-tensor symmetric quantization |
-| **Weights** | Signed INT4 (`[-8, 7]`) | Per-tensor symmetric quantization |
+| **Activations** | Signed INT8 (`[-128, 127]`) | Q3.5, scale `2^-5` |
+| **Weights** | Signed INT4 (`[-8, 7]`) | Per-tensor power-of-two scale |
 | **Accumulator** | Signed INT32 | Prevents overflow across dot products |
 | **Tile Dimensions** | `M=16, K=16, N=16` | Standard GEMM tile for hardware verification |
-| **Model Dimensions** | `d_model=64`, `seq_len=16` | Multi-head attention (2 heads, `head_dim=32`) |
+| **Model Dimensions** | `d_model=64`, `seq_len=64` | One attention head, `head_dim=64` |
 | **MLP / FFN Dim** | `d_mlp=128` | Expansion factor of 2x |
 | **Activation Function** | GeLU via 8-bit LUT | Simulates hardware lookup table |
 
@@ -27,6 +27,9 @@ This repo holds the Python golden models, Brevitas QONNX export scripts, and RTL
 │   └── test.py                 # RTL / hardware simulation scratchpad
 └── testing_py/
     ├── pytorch_model.py        # Quantized PyTorch reference model (MHSA + FFN + GeLU LUT)
+    ├── train_model.py          # Deterministic ARES training and deployment export
+    ├── gen_qkv_vectors.py      # Trained Q/K/V BRAM and attention golden vectors
+    ├── kera_fixed.py           # Shared fixed-point, packing, hex, and metric utilities
     ├── test_reference_vec.py   # Test vector & BRAM hex file generator for RTL testbenches
     └── transformer_script.py   # Brevitas INT8/INT4 layer definition & QONNX export for FINN
 ```
@@ -40,6 +43,12 @@ Software golden model for a single-layer quantized transformer block.
 - Implements symmetric INT4 weight and INT8 activation quantization.
 - Models multi-head self-attention, integer matrix multiplications, fixed-point scaling, and an 8-bit GeLU LUT approximation matching the RTL implementation.
 - Verifies full forward pass integrity with residual additions.
+
+### `testing_py/train_model.py`
+- Trains the 64-token, single-head sensor-fusion model using one stable sensor embedding basis.
+- Exports a PyTorch checkpoint and compact NumPy deployment artifact containing trained INT4
+  weights and the power-of-two requantization shifts used by the RTL reference.
+- Reports both FP32 validation MSE and post-training INT8/INT4 validation MSE.
 
 ### `testing_py/test_reference_vec.py`
 Generates deterministic test vectors and golden outputs for RTL testbench validation using fixed seed `42` on a `16x16x16` tile:
@@ -79,8 +88,11 @@ pip install torch numpy brevitas
 
 ```bash
 make help          # Show all available make targets
+make train         # Retrain and export .pt and lightweight .npz deployment artifacts
 make model         # Run PyTorch quantized transformer golden model & LUT tests
 make vectors       # Generate RTL test vectors (act_tile.hex, weights_bram.hex, golden_out.hex)
+make qkv-vectors   # Generate 64-token vectors from the trained Q/K/V weights
+make verify-rtl    # Run the GEMM simulation and compare its raw dump with Python
 make lut-gelu      # Run standalone GeLU LUT quantization & error analysis
 make lut-softmax   # Run standalone Softmax LUT approximation & error analysis
 make qonnx         # Export Brevitas INT8/INT4 layer to QONNX format
@@ -96,6 +108,9 @@ python testing_py/pytorch_model.py
 
 # Generate Hardware Test Vectors
 python testing_py/test_reference_vec.py
+
+# Retrain and regenerate vectors from trained weights
+make train qkv-vectors
 
 # Export QONNX Graph
 python testing_py/transformer_script.py

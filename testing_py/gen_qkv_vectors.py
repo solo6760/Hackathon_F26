@@ -12,12 +12,11 @@ try:  # Support both direct execution and ``import testing_py...``.
 except ImportError:
     from kera_fixed import matmul_accum, pack_int4, requantize, unpack_int4, write_memh
 
-M, D, H, DH, T = 16, 64, 2, 32, 16
+D, T = 64, 16
 K_TILES, GROUPS = D // T, D // T
 OUT = "vectors_qkv"
 ACC_BITS = 32
-PROJ_SHIFT = 6
-ATTN_MULT, ATTN_SHIFT = 45, 6  # quarter-step index: (1/sqrt(32)) * 4 ~= 45/64
+ACT_SCALE = 2.0 ** -5
 EXP_Q_BITS = 15
 EXP_LUT_Q15 = np.floor(
     np.exp(np.arange(-32, 1) / 4.0) * ((1 << EXP_Q_BITS) - 1) + 0.5
@@ -50,11 +49,22 @@ def pack_act_lines_fast(activations):
     return np.ascontiguousarray(activations.T[:, ::-1]).view(np.uint8)
 
 
-def softmax_lut_fixed(scores_int32):
+def attention_index_scale(head_dim, activation_scale=ACT_SCALE):
+    """Return reduced fixed multiplier for QK accum -> quarter-step LUT index."""
+    factor = 4.0 * activation_scale * activation_scale / np.sqrt(head_dim)
+    shift = 24
+    multiplier = max(1, round(factor * (1 << shift)))
+    while shift and multiplier % 2 == 0:
+        multiplier //= 2
+        shift -= 1
+    return multiplier, shift
+
+
+def softmax_lut_fixed(scores_int32, multiplier=1, shift=15):
     """Integer attention scaling, Q15 exp LUT, and integer normalization."""
     scores = np.asarray(scores_int32, dtype=np.int64)
     quarter_steps = requantize(
-        scores, multiplier=ATTN_MULT, shift=ATTN_SHIFT, out_bits=32, rounding="half_up"
+        scores, multiplier=multiplier, shift=shift, out_bits=32, rounding="half_up"
     )
     delta = quarter_steps - np.max(quarter_steps, axis=-1, keepdims=True)
     lut_index = np.clip(delta, -32, 0).astype(np.intp) + 32
@@ -72,31 +82,44 @@ def _write_wide_memh(path, byte_rows):
     path.write_text(text)
 
 
-def load_trained_qkv_weights(checkpoint_path="testing_py/kera_sensor_fusion_trained.pt"):
-    """Loads trained INT4 Q, K, V weights from checkpoint, transposed to [K, N] = [64, 64]."""
+def load_trained_qkv_weights(checkpoint_path="testing_py/kera_sensor_fusion_trained.pt",
+                             return_shifts=False):
+    """Load trained [K,N] INT4 weights, preferring the lightweight NPZ export."""
     ckpt_file = Path(checkpoint_path)
-    if not ckpt_file.exists() and Path(f"../{checkpoint_path}").exists():
-        ckpt_file = Path(f"../{checkpoint_path}")
+    local_file = Path(__file__).resolve().parent / ckpt_file.name
+    if not ckpt_file.exists() and local_file.exists():
+        ckpt_file = local_file
     if not ckpt_file.exists():
         return None
-    try:
+    deploy_file = ckpt_file.with_suffix(".npz")
+    if deploy_file.exists():
+        with np.load(deploy_file) as deploy:
+            weights = np.stack([deploy["w_q"], deploy["w_k"], deploy["w_v"]]).astype(np.int8)
+            shifts = deploy["projection_shifts"].astype(np.int64)
+    else:
         import torch
+
         ckpt = torch.load(ckpt_file, map_location="cpu")
         qw = ckpt["quantized_weights"]
-        # Transpose PyTorch [out, in] = [64, 64] -> datapath [K, N] = [64, 64]
-        w_q = qw["w_q"].numpy().T.astype(np.int8)
-        w_k = qw["w_k"].numpy().T.astype(np.int8)
-        w_v = qw["w_v"].numpy().T.astype(np.int8)
-        return np.stack([w_q, w_k, w_v])  # shape (3, 64, 64)
-    except Exception:
-        return None
+        weights = np.stack([
+            qw["w_q"].numpy().T, qw["w_k"].numpy().T, qw["w_v"].numpy().T
+        ]).astype(np.int8)
+        shifts = np.array([
+            ckpt["requant_shifts"][key] for key in ("w_q", "w_k", "w_v")
+        ], dtype=np.int64)
+    return (weights, shifts) if return_shifts else weights
 
 
-def generate_attention_vectors(seq_len=64, n_heads=1, seed=42, checkpoint_path="testing_py/kera_sensor_fusion_trained.pt", out_dir=OUT):
+def generate_attention_vectors(seq_len=64, n_heads=1, seed=42,
+                               checkpoint_path="testing_py/kera_sensor_fusion_trained.pt",
+                               out_dir=OUT, allow_random=False):
     rng = np.random.RandomState(seed)
     M_len = seq_len
     H_len = n_heads
     DH_len = D // n_heads
+    if D % n_heads:
+        raise ValueError("D must be divisible by n_heads")
+    attn_mult, attn_shift = attention_index_scale(DH_len)
 
     # 1. Load Input Activations X from ARES Trajectory
     try:
@@ -109,16 +132,20 @@ def generate_attention_vectors(seq_len=64, n_heads=1, seed=42, checkpoint_path="
             generate_ares_trajectory(M_len, seed=seed), D, seed, as_numpy=True
         )
         activations = tokens[0]
-    except Exception:
+    except ImportError:
         activations = rng.randint(-128, 128, size=(M_len, D), dtype=np.int8)
 
     # 2. Load Real Trained INT4 Weights from Checkpoint (or fallback to seeded)
-    weights = load_trained_qkv_weights(checkpoint_path)
-    if weights is not None:
+    trained = load_trained_qkv_weights(checkpoint_path, return_shifts=True)
+    if trained is not None:
+        weights, projection_shifts = trained
         print(f"Loaded real trained Q/K/V weights from {checkpoint_path}")
-    else:
+    elif allow_random:
         print("Using seeded INT4 weights (checkpoint not found)")
         weights = rng.randint(-8, 8, size=(3, D, D), dtype=np.int8)
+        projection_shifts = np.full(3, 6, dtype=np.int64)
+    else:
+        raise FileNotFoundError(f"trained checkpoint not found: {checkpoint_path}")
 
     packed = tuple(pack_weights_bram_fast(weight) for weight in weights)
     for name, words, weight in zip("QKV", packed, weights):
@@ -131,9 +158,10 @@ def generate_attention_vectors(seq_len=64, n_heads=1, seed=42, checkpoint_path="
     ])
 
     # Requantize to INT8 (>>> 6)
-    projected_int8 = requantize(
-        projections, shift=PROJ_SHIFT, out_bits=8, rounding="half_up"
-    ).astype(np.int8)
+    projected_int8 = np.stack([
+        requantize(projection, shift=int(shift), out_bits=8, rounding="half_up")
+        for projection, shift in zip(projections, projection_shifts)
+    ]).astype(np.int8)
 
     q_h, k_h, v_h = (
         value.reshape(M_len, H_len, DH_len).transpose(1, 0, 2) for value in projected_int8
@@ -141,7 +169,7 @@ def generate_attention_vectors(seq_len=64, n_heads=1, seed=42, checkpoint_path="
 
     # QK^T in INT32
     scores = matmul_accum(q_h, k_h.transpose(0, 2, 1), bits=ACC_BITS, overflow="wrap")
-    probabilities = softmax_lut_fixed(scores)
+    probabilities = softmax_lut_fixed(scores, attn_mult, attn_shift)
     context = matmul_accum(probabilities, v_h, bits=ACC_BITS, overflow="wrap")
 
     out = Path(out_dir)
@@ -166,6 +194,7 @@ def generate_attention_vectors(seq_len=64, n_heads=1, seed=42, checkpoint_path="
         "weights": weights,
         "projections": projections,
         "projected_int8": projected_int8,
+        "projection_shifts": projection_shifts,
         "scores": scores,
         "probabilities": probabilities,
         "context": context,

@@ -1,6 +1,7 @@
 PYTHON ?= python3
 
-.PHONY: help all model vectors lut-gelu lut-softmax qonnx finn-convert test clean
+.PHONY: help all train model vectors qkv-vectors sensor-fusion ablation sim-rtl \
+	verify-rtl lut-gelu lut-softmax qonnx finn-convert test clean
 
 help:
 	@echo "Hackathon F26 - Quantized Transformer Accelerator"

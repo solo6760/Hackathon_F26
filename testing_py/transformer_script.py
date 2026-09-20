@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 # PyTorch compatibility shim for Brevitas FX tracer
 import torch.fx._symbolic_trace
@@ -24,13 +26,21 @@ class FinnTransformerBlock(torch.nn.Module):
     def forward(self, x):
         return self.fc1(self.quant_in(x))
 
-# 2. Instantiate and export
+# 2. Instantiate and load the trained FFN1 weights
+torch.manual_seed(42)
 model = FinnTransformerBlock()
+script_dir = Path(__file__).resolve().parent
+checkpoint = torch.load(script_dir / "kera_sensor_fusion_trained.pt", map_location="cpu")
+with torch.no_grad():
+    model.fc1.weight.copy_(checkpoint["model_state_dict"]["ffn1.weight"])
 model.eval()
 
-# Dummy input matching Sequence Length = 16, Embedding Dim = 64
-dummy_input = torch.randn(1, 16, 64)
+# Dummy input matching Sequence Length = 64, Embedding Dim = 64
+dummy_input = torch.randn(1, 64, 64)
 
 # 3. Export to QONNX format for FINN
-export_qonnx(model, args=dummy_input, export_path="transformer_layer.onnx")
-print("Successfully generated transformer_layer.onnx")
+export_path = script_dir / "transformer_layer.onnx"
+# FINN/QONNX consumes the legacy custom Quant operators. Explicitly disable
+# Dynamo so newer PyTorch releases do not emit a separate external-data file.
+export_qonnx(model, args=dummy_input, export_path=export_path, dynamo=False)
+print(f"Successfully generated {export_path}")

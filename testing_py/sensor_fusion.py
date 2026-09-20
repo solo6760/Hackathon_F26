@@ -68,10 +68,10 @@ def embed_sensor_stream(sensor_data, d_model=64, seed=42, as_numpy=False):
     std = np.std(embedded, axis=-1, keepdims=True) + 1e-5
     normed = (embedded - mean) / std
 
-    # Q1.7 activation format: multiplication by 2**7 is the software form of
-    # the RTL binary-point shift. floor(x + 0.5) matches round-half-up logic.
-    scale = 2.0 ** -7
-    int8_tokens = np.clip(np.floor(normed * (1 << 7) + 0.5), -128, 127).astype(np.int8)
+    # Q3.5 covers layer-normalized values up to almost +/-4 without the heavy
+    # clipping caused by Q1.7. The power-of-two scale is a five-bit RTL shift.
+    scale = 2.0 ** -5
+    int8_tokens = np.clip(np.floor(normed * (1 << 5) + 0.5), -128, 127).astype(np.int8)
     if as_numpy:
         return int8_tokens[None, ...], scale
     import torch
@@ -80,7 +80,7 @@ def embed_sensor_stream(sensor_data, d_model=64, seed=42, as_numpy=False):
 
 
 if __name__ == "__main__":
-    data = generate_ares_trajectory(seq_len=16)
+    data = generate_ares_trajectory(seq_len=64)
     tokens, scale = embed_sensor_stream(data, d_model=64)
     print("ARES Sensor Trajectory generated:")
     print("  Tokens shape:", tokens.shape, "range:", tokens.min().item(), "to", tokens.max().item())
