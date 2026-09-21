@@ -1,0 +1,782 @@
+#-----------------------------------------------------------
+# Vivado v2025.2 (64-bit)
+# SW Build 6299465 on Fri Nov 14 19:35:11 GMT 2025
+# IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
+# SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
+# Start of session at: Sun Sep 20 23:23:11 2026
+# Process ID         : 26636
+# Current directory  : C:/GithubRepos/Hackathon_F26
+# Command line       : vivado.exe -mode batch -source C:\Users\Blaze\.gemini\antigravity\brain\f3a26c17-75ec-4188-b104-352681cd1bcf\scratch\verify_mem_synth.tcl
+# Log file           : C:/GithubRepos/Hackathon_F26/vivado.log
+# Journal file       : C:/GithubRepos/Hackathon_F26\vivado.jou
+# Running On         : KZLap
+# Platform           : Windows Server 2016 or Windows 10
+# Operating System   : 26200
+# Processor Detail   : Intel(R) Core(TM) Ultra 7 255HX
+# CPU Frequency      : 2880 MHz
+# CPU Physical cores : 20
+# CPU Logical cores  : 20
+# Host memory        : 33752 MB
+# Swap memory        : 15913 MB
+# Total Virtual      : 49666 MB
+# Available Virtual  : 5719 MB
+#-----------------------------------------------------------
+source {C:\Users\Blaze\.gemini\antigravity\brain\f3a26c17-75ec-4188-b104-352681cd1bcf\scratch\verify_mem_synth.tcl}
+# set TEST_DIR "C:/Users/Blaze/.gemini/antigravity/brain/f3a26c17-75ec-4188-b104-352681cd1bcf/scratch/test_viv"
+# file mkdir $TEST_DIR
+# create_project -force test_mem $TEST_DIR -part xc7a35tcpg236-1
+INFO: [ProjectBase 1-489] The host OS only allows 260 characters in a normal path. The project is stored in a path with more than 80 characters. If you experience issues with IP, Block Designs, or files not being found, please consider moving the project to a location with a shorter path. Alternately consider using the OS subst command to map part of the path to a drive letter.
+Current project path is 'C:/Users/Blaze/.gemini/antigravity/brain/f3a26c17-75ec-4188-b104-352681cd1bcf/scratch/test_viv'
+# add_files -norecurse {
+#     C:/GithubRepos/Hackathon_F26/fc1.hex
+#     C:/GithubRepos/Hackathon_F26/w_fc1.hex
+#     C:/GithubRepos/Hackathon_F26/act_fc1.hex
+#     C:/GithubRepos/Hackathon_F26/Kade_RTL/src/PU.sv
+#     C:/GithubRepos/Hackathon_F26/Kade_RTL/src/asyncFIFO.sv
+#     C:/GithubRepos/Hackathon_F26/Kade_RTL/src/flexCounter.sv
+#     C:/GithubRepos/Hackathon_F26/control_path/src/kera_ctrl.sv
+#     C:/GithubRepos/Hackathon_F26/Kade_RTL/src/kera_mem.sv
+#     C:/GithubRepos/Hackathon_F26/Kade_RTL/src/sysArr.sv
+#     C:/GithubRepos/Hackathon_F26/Kade_RTL/src/sysController.sv
+#     C:/GithubRepos/Hackathon_F26/Kade_RTL/src/basys3_top.sv
+# }
+# set_property file_type {Memory File} [get_files *.hex]
+# launch_runs synth_1
+WARNING: [Vivado 12-7122] Auto Incremental Compile:: No reference checkpoint was found in run synth_1. Auto-incremental flow will not be run, the standard flow will be run instead.
+[Sun Sep 20 23:23:19 2026] Launched synth_1...
+Run output will be captured here: C:/Users/Blaze/.gemini/antigravity/brain/f3a26c17-75ec-4188-b104-352681cd1bcf/scratch/test_viv/test_mem.runs/synth_1/runme.log
+# wait_on_run synth_1
+[Sun Sep 20 23:23:19 2026] Waiting for synth_1 to finish...
+
+*** Running vivado
+    with args -log basys3_top.vds -m64 -product Vivado -mode batch -messageDb vivado.pb -notrace -source basys3_top.tcl
+
+
+
+****** Vivado v2025.2 (64-bit)
+  **** SW Build 6299465 on Fri Nov 14 19:35:11 GMT 2025
+  **** IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
+  **** SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
+  **** Start of session at: Sun Sep 20 23:23:21 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source basys3_top.tcl -notrace
+Command: synth_design -top basys3_top -part xc7a35tcpg236-1
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xc7a35t'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xc7a35t'
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 2 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 29632
+---------------------------------------------------------------------------------
+Starting Synthesize : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 1073.703 ; gain = 539.922
+---------------------------------------------------------------------------------
+INFO: [Synth 8-6157] synthesizing module 'basys3_top' [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/basys3_top.sv:1]
+INFO: [Synth 8-3876] $readmem data file 'fc1.hex' is read successfully [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/basys3_top.sv:48]
+INFO: [Synth 8-6157] synthesizing module 'kera_ctrl' [C:/GithubRepos/Hackathon_F26/control_path/src/kera_ctrl.sv:2]
+	Parameter PC_W bound to: 32'sb00000000000000000000000000001000 
+	Parameter TIMEOUT bound to: 32'sb00000000000000000000010000000000 
+INFO: [Synth 8-6155] done synthesizing module 'kera_ctrl' (0#1) [C:/GithubRepos/Hackathon_F26/control_path/src/kera_ctrl.sv:2]
+INFO: [Synth 8-6157] synthesizing module 'sysController' [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/sysController.sv:1]
+	Parameter SIZE bound to: 16 - type: integer 
+INFO: [Synth 8-6157] synthesizing module 'flexCounter' [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/flexCounter.sv:1]
+	Parameter SIZE bound to: 4 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'flexCounter' (0#1) [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/flexCounter.sv:1]
+INFO: [Synth 8-6157] synthesizing module 'sysArr' [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/sysArr.sv:1]
+	Parameter SIZE bound to: 16 - type: integer 
+INFO: [Synth 8-6157] synthesizing module 'PU' [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/PU.sv:1]
+INFO: [Synth 8-6155] done synthesizing module 'PU' (0#1) [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/PU.sv:1]
+INFO: [Synth 8-6155] done synthesizing module 'sysArr' (0#1) [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/sysArr.sv:1]
+INFO: [Synth 8-6157] synthesizing module 'asyncFIFO' [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/asyncFIFO.sv:1]
+	Parameter I_SIZE bound to: 32'sb00000000000000000000001000000000 
+	Parameter O_SIZE bound to: 32'sb00000000000000000000001000000000 
+	Parameter WIDTH bound to: 16 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'asyncFIFO' (0#1) [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/asyncFIFO.sv:1]
+INFO: [Synth 8-6157] synthesizing module 'kera_mem' [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/kera_mem.sv:1]
+	Parameter SIZE bound to: 16 - type: integer 
+	Parameter W_FILE bound to: w_fc1.hex - type: string 
+	Parameter ACT_FILE bound to: act_fc1.hex - type: string 
+INFO: [Synth 8-3876] $readmem data file 'w_fc1.hex' is read successfully [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/kera_mem.sv:35]
+INFO: [Synth 8-3876] $readmem data file 'act_fc1.hex' is read successfully [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/kera_mem.sv:36]
+INFO: [Synth 8-6155] done synthesizing module 'kera_mem' (0#1) [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/kera_mem.sv:1]
+INFO: [Synth 8-226] default block is never used [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/sysController.sv:163]
+INFO: [Synth 8-6155] done synthesizing module 'sysController' (0#1) [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/sysController.sv:1]
+INFO: [Synth 8-6155] done synthesizing module 'basys3_top' (0#1) [C:/GithubRepos/Hackathon_F26/Kade_RTL/src/basys3_top.sv:1]
+WARNING: [Synth 8-7129] Port prevSum[31] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[30] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[29] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[28] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[27] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[26] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[25] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[24] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[23] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[22] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[21] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[20] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[19] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[18] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[17] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[16] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[15] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[14] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[13] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[12] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[11] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[10] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[9] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[8] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[7] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[6] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[5] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[4] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[3] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[2] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[1] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[0] in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port shift_en in module PU is either unconnected or has no load
+WARNING: [Synth 8-7129] Port load_en in module sysArr is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[14] in module basys3_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[13] in module basys3_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[12] in module basys3_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[11] in module basys3_top is either unconnected or has no load
+---------------------------------------------------------------------------------
+Finished Synthesize : Time (s): cpu = 00:00:05 ; elapsed = 00:00:06 . Memory (MB): peak = 1212.660 ; gain = 678.879
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:06 ; elapsed = 00:00:07 . Memory (MB): peak = 1212.660 ; gain = 678.879
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xc7a35tcpg236-1
+---------------------------------------------------------------------------------
+INFO: [Device 21-403] Loading part xc7a35tcpg236-1
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:06 ; elapsed = 00:00:07 . Memory (MB): peak = 1212.660 ; gain = 678.879
+---------------------------------------------------------------------------------
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'kera_ctrl'
+INFO: [Synth 8-802] inferred FSM for state register 'counter_state_reg' in module 'sysController'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                  S_BOOT |                              101 |                              000
+                 S_FETCH |                              100 |                              001
+                  S_EXEC |                              010 |                              010
+              S_WAIT_LOW |                              011 |                              011
+             S_WAIT_HIGH |                              001 |                              100
+                  S_HALT |                              000 |                              101
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'kera_ctrl'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                    IDLE |                               00 |                               00
+                 COMPUTE |                               01 |                               01
+                   DRAIN |                               10 |                               10
+             DRAIN_FLUSH |                               11 |                               11
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'counter_state_reg' using encoding 'sequential' in module 'sysController'
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:07 ; elapsed = 00:00:07 . Memory (MB): peak = 1212.660 ; gain = 678.879
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input   11 Bit       Adders := 1     
+	   2 Input    8 Bit       Adders := 2     
+	   2 Input    6 Bit       Adders := 1     
+	   2 Input    5 Bit       Adders := 2     
+	   2 Input    4 Bit       Adders := 4     
++---Registers : 
+	              512 Bit    Registers := 18    
+	              128 Bit    Registers := 1     
+	               32 Bit    Registers := 2     
+	               16 Bit    Registers := 1     
+	               11 Bit    Registers := 1     
+	                8 Bit    Registers := 257   
+	                7 Bit    Registers := 1     
+	                6 Bit    Registers := 3     
+	                5 Bit    Registers := 2     
+	                4 Bit    Registers := 263   
+	                3 Bit    Registers := 1     
+	                2 Bit    Registers := 1     
+	                1 Bit    Registers := 20    
++---Multipliers : 
+	                4x8  Multipliers := 256   
++---RAMs : 
+	              64K Bit	(128 X 512 bit)          RAMs := 1     
++---ROMs : 
+	                    ROMs := 3     
++---Muxes : 
+	   2 Input   16 Bit        Muxes := 1     
+	   2 Input   11 Bit        Muxes := 1     
+	   5 Input   11 Bit        Muxes := 1     
+	   2 Input    6 Bit        Muxes := 1     
+	   2 Input    4 Bit        Muxes := 4     
+	   4 Input    4 Bit        Muxes := 2     
+	   2 Input    3 Bit        Muxes := 6     
+	   5 Input    3 Bit        Muxes := 1     
+	   3 Input    3 Bit        Muxes := 1     
+	   2 Input    2 Bit        Muxes := 8     
+	   3 Input    2 Bit        Muxes := 1     
+	   4 Input    2 Bit        Muxes := 2     
+	   5 Input    2 Bit        Muxes := 1     
+	   2 Input    1 Bit        Muxes := 303   
+	   4 Input    1 Bit        Muxes := 5     
+	   3 Input    1 Bit        Muxes := 12    
+	   5 Input    1 Bit        Muxes := 20    
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 90 (col length:60)
+BRAMs: 100 (col length: RAMB18 60 RAMB36 30)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+WARNING: [Synth 8-7129] Port sw[14] in module basys3_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[13] in module basys3_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[12] in module basys3_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port sw[11] in module basys3_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[31] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[30] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[29] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[28] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[27] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[26] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[25] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[24] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[23] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[22] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[21] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[20] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[19] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[18] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[17] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[16] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[15] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[14] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[13] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[12] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[11] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[10] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[9] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[8] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[7] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[6] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[5] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[4] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[3] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[2] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[1] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[0] in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port shift_en in module PU__144 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[31] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[30] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[29] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[28] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[27] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[26] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[25] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[24] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[23] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[22] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[21] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[20] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[19] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[18] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[17] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[16] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[15] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[14] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[13] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[12] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[11] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[10] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[9] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[8] in module PU__143 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port prevSum[7] in module PU__143 is either unconnected or has no load
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-5542] Attribute ram_style/rom_style = distributed specified for ROM  "p_0_out". This will be implemented in logic
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:00:19 ; elapsed = 00:00:30 . Memory (MB): peak = 1471.836 ; gain = 938.055
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+ROM: Preliminary Mapping Report
++------------+------------+---------------+----------------+
+|Module Name | RTL Object | Depth x Width | Implemented As | 
++------------+------------+---------------+----------------+
+|kera_mem    | amem       | 64x128        | LUT            | 
++------------+------------+---------------+----------------+
+
+
+Block RAM: Preliminary Mapping Report (see note below)
++-------------------+------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|Module Name        | RTL Object             | PORT A (Depth x Width) | W | R | PORT B (Depth x Width) | W | R | Ports driving FF | RAMB18 | RAMB36 | 
++-------------------+------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|sysController__GC0 | inst_kera_mem/omem_reg | 128 x 512(READ_FIRST)  | W |   | 128 x 512(WRITE_FIRST) |   | R | Port A and B     | 1      | 7      | 
++-------------------+------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+
+Note: The table above is a preliminary report that shows the Block RAMs at the current stage of the synthesis flow. Some Block RAMs may be reimplemented as non Block RAM primitives later in the synthesis flow. Multiple instantiated Block RAMs are reported only once. 
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:00:20 ; elapsed = 00:00:32 . Memory (MB): peak = 1477.855 ; gain = 944.074
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+Block RAM: Final Mapping Report
++-------------------+------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|Module Name        | RTL Object             | PORT A (Depth x Width) | W | R | PORT B (Depth x Width) | W | R | Ports driving FF | RAMB18 | RAMB36 | 
++-------------------+------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|sysController__GC0 | inst_kera_mem/omem_reg | 128 x 512(READ_FIRST)  | W |   | 128 x 512(WRITE_FIRST) |   | R | Port A and B     | 1      | 7      | 
++-------------------+------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+INFO: [Synth 8-7052] The timing for the instance i_0/instr_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sysi_8/u_sys/inst_kera_mem/w_hi_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sysi_8/u_sys/inst_kera_mem/w_hi_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sysi_8/u_sys/inst_kera_mem/omem_reg_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sysi_8/u_sys/inst_kera_mem/omem_reg_1 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sysi_8/u_sys/inst_kera_mem/omem_reg_2 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sysi_8/u_sys/inst_kera_mem/omem_reg_3 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sysi_8/u_sys/inst_kera_mem/omem_reg_4 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sysi_8/u_sys/inst_kera_mem/omem_reg_5 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sysi_8/u_sys/inst_kera_mem/omem_reg_6 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sysi_8/u_sys/inst_kera_mem/omem_reg_7 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:00:23 ; elapsed = 00:00:39 . Memory (MB): peak = 1488.430 ; gain = 954.648
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+INFO: [Synth 8-7052] The timing for the instance u_sys/inst_kera_mem/w_hi_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sys/inst_kera_mem/w_hi_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sys/inst_kera_mem/omem_reg_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sys/inst_kera_mem/omem_reg_1 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sys/inst_kera_mem/omem_reg_2 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sys/inst_kera_mem/omem_reg_3 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sys/inst_kera_mem/omem_reg_4 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sys/inst_kera_mem/omem_reg_5 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sys/inst_kera_mem/omem_reg_6 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance u_sys/inst_kera_mem/omem_reg_7 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance instr_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:00:31 ; elapsed = 00:00:48 . Memory (MB): peak = 1707.477 ; gain = 1173.695
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:00:31 ; elapsed = 00:00:48 . Memory (MB): peak = 1707.477 ; gain = 1173.695
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:00:34 ; elapsed = 00:00:50 . Memory (MB): peak = 1730.707 ; gain = 1196.926
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:00:34 ; elapsed = 00:00:51 . Memory (MB): peak = 1730.707 ; gain = 1196.926
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:35 ; elapsed = 00:00:52 . Memory (MB): peak = 1751.367 ; gain = 1217.586
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:00:35 ; elapsed = 00:00:52 . Memory (MB): peak = 1751.367 ; gain = 1217.586
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+Report BlackBoxes: 
++-+--------------+----------+
+| |BlackBox name |Instances |
++-+--------------+----------+
++-+--------------+----------+
+
+Report Cell Usage: 
++------+---------+------+
+|      |Cell     |Count |
++------+---------+------+
+|1     |BUFG     |     1|
+|2     |CARRY4   |  3589|
+|3     |LUT1     |    23|
+|4     |LUT2     |  9781|
+|5     |LUT3     | 10543|
+|6     |LUT4     |  1074|
+|7     |LUT5     |  1826|
+|8     |LUT6     |  7743|
+|9     |MUXF7    |  2112|
+|10    |MUXF8    |  1056|
+|11    |RAMB18E1 |     2|
+|12    |RAMB36E1 |     8|
+|13    |FDCE     | 17021|
+|14    |FDRE     |   197|
+|15    |FDSE     |     4|
+|16    |IBUF     |    15|
+|17    |OBUF     |    27|
++------+---------+------+
+
+Report Instance Areas: 
++------+------------------------------------------+--------------+------+
+|      |Instance                                  |Module        |Cells |
++------+------------------------------------------+--------------+------+
+|1     |top                                       |              | 55022|
+|2     |  u_ctrl                                  |kera_ctrl     |   139|
+|3     |  u_sys                                   |sysController | 54805|
+|4     |    inst_count                            |flexCounter   |    74|
+|5     |    inst_fifo                             |asyncFIFO     | 12451|
+|6     |    inst_kera_mem                         |kera_mem      | 30373|
+|7     |    inst_sysArr                           |sysArr        | 11776|
+|8     |      \genblk1[0].processUnits[0].inst    |PU            |    32|
+|9     |      \genblk1[0].processUnits[10].inst   |PU_0          |    32|
+|10    |      \genblk1[0].processUnits[11].inst   |PU_1          |    96|
+|11    |      \genblk1[0].processUnits[12].inst   |PU_2          |    32|
+|12    |      \genblk1[0].processUnits[13].inst   |PU_3          |    32|
+|13    |      \genblk1[0].processUnits[14].inst   |PU_4          |    32|
+|14    |      \genblk1[0].processUnits[15].inst   |PU_5          |    64|
+|15    |      \genblk1[0].processUnits[1].inst    |PU_6          |    32|
+|16    |      \genblk1[0].processUnits[2].inst    |PU_7          |    32|
+|17    |      \genblk1[0].processUnits[3].inst    |PU_8          |   128|
+|18    |      \genblk1[0].processUnits[4].inst    |PU_9          |    32|
+|19    |      \genblk1[0].processUnits[5].inst    |PU_10         |    32|
+|20    |      \genblk1[0].processUnits[6].inst    |PU_11         |    32|
+|21    |      \genblk1[0].processUnits[7].inst    |PU_12         |    64|
+|22    |      \genblk1[0].processUnits[8].inst    |PU_13         |    32|
+|23    |      \genblk1[0].processUnits[9].inst    |PU_14         |    32|
+|24    |      \genblk1[10].processUnits[0].inst   |PU_15         |    32|
+|25    |      \genblk1[10].processUnits[10].inst  |PU_16         |    32|
+|26    |      \genblk1[10].processUnits[11].inst  |PU_17         |    96|
+|27    |      \genblk1[10].processUnits[12].inst  |PU_18         |    32|
+|28    |      \genblk1[10].processUnits[13].inst  |PU_19         |    32|
+|29    |      \genblk1[10].processUnits[14].inst  |PU_20         |    32|
+|30    |      \genblk1[10].processUnits[15].inst  |PU_21         |    64|
+|31    |      \genblk1[10].processUnits[1].inst   |PU_22         |    32|
+|32    |      \genblk1[10].processUnits[2].inst   |PU_23         |    32|
+|33    |      \genblk1[10].processUnits[3].inst   |PU_24         |   128|
+|34    |      \genblk1[10].processUnits[4].inst   |PU_25         |    32|
+|35    |      \genblk1[10].processUnits[5].inst   |PU_26         |    32|
+|36    |      \genblk1[10].processUnits[6].inst   |PU_27         |    32|
+|37    |      \genblk1[10].processUnits[7].inst   |PU_28         |    64|
+|38    |      \genblk1[10].processUnits[8].inst   |PU_29         |    32|
+|39    |      \genblk1[10].processUnits[9].inst   |PU_30         |    32|
+|40    |      \genblk1[11].processUnits[0].inst   |PU_31         |    32|
+|41    |      \genblk1[11].processUnits[10].inst  |PU_32         |    32|
+|42    |      \genblk1[11].processUnits[11].inst  |PU_33         |    96|
+|43    |      \genblk1[11].processUnits[12].inst  |PU_34         |    32|
+|44    |      \genblk1[11].processUnits[13].inst  |PU_35         |    32|
+|45    |      \genblk1[11].processUnits[14].inst  |PU_36         |    32|
+|46    |      \genblk1[11].processUnits[15].inst  |PU_37         |    64|
+|47    |      \genblk1[11].processUnits[1].inst   |PU_38         |    32|
+|48    |      \genblk1[11].processUnits[2].inst   |PU_39         |    32|
+|49    |      \genblk1[11].processUnits[3].inst   |PU_40         |   128|
+|50    |      \genblk1[11].processUnits[4].inst   |PU_41         |    32|
+|51    |      \genblk1[11].processUnits[5].inst   |PU_42         |    32|
+|52    |      \genblk1[11].processUnits[6].inst   |PU_43         |    32|
+|53    |      \genblk1[11].processUnits[7].inst   |PU_44         |    64|
+|54    |      \genblk1[11].processUnits[8].inst   |PU_45         |    32|
+|55    |      \genblk1[11].processUnits[9].inst   |PU_46         |    32|
+|56    |      \genblk1[12].processUnits[0].inst   |PU_47         |    32|
+|57    |      \genblk1[12].processUnits[10].inst  |PU_48         |    32|
+|58    |      \genblk1[12].processUnits[11].inst  |PU_49         |    96|
+|59    |      \genblk1[12].processUnits[12].inst  |PU_50         |    32|
+|60    |      \genblk1[12].processUnits[13].inst  |PU_51         |    32|
+|61    |      \genblk1[12].processUnits[14].inst  |PU_52         |    32|
+|62    |      \genblk1[12].processUnits[15].inst  |PU_53         |    64|
+|63    |      \genblk1[12].processUnits[1].inst   |PU_54         |    32|
+|64    |      \genblk1[12].processUnits[2].inst   |PU_55         |    32|
+|65    |      \genblk1[12].processUnits[3].inst   |PU_56         |   128|
+|66    |      \genblk1[12].processUnits[4].inst   |PU_57         |    32|
+|67    |      \genblk1[12].processUnits[5].inst   |PU_58         |    32|
+|68    |      \genblk1[12].processUnits[6].inst   |PU_59         |    32|
+|69    |      \genblk1[12].processUnits[7].inst   |PU_60         |    64|
+|70    |      \genblk1[12].processUnits[8].inst   |PU_61         |    32|
+|71    |      \genblk1[12].processUnits[9].inst   |PU_62         |    32|
+|72    |      \genblk1[13].processUnits[0].inst   |PU_63         |    32|
+|73    |      \genblk1[13].processUnits[10].inst  |PU_64         |    32|
+|74    |      \genblk1[13].processUnits[11].inst  |PU_65         |    96|
+|75    |      \genblk1[13].processUnits[12].inst  |PU_66         |    32|
+|76    |      \genblk1[13].processUnits[13].inst  |PU_67         |    32|
+|77    |      \genblk1[13].processUnits[14].inst  |PU_68         |    32|
+|78    |      \genblk1[13].processUnits[15].inst  |PU_69         |    64|
+|79    |      \genblk1[13].processUnits[1].inst   |PU_70         |    32|
+|80    |      \genblk1[13].processUnits[2].inst   |PU_71         |    32|
+|81    |      \genblk1[13].processUnits[3].inst   |PU_72         |   128|
+|82    |      \genblk1[13].processUnits[4].inst   |PU_73         |    32|
+|83    |      \genblk1[13].processUnits[5].inst   |PU_74         |    32|
+|84    |      \genblk1[13].processUnits[6].inst   |PU_75         |    32|
+|85    |      \genblk1[13].processUnits[7].inst   |PU_76         |    64|
+|86    |      \genblk1[13].processUnits[8].inst   |PU_77         |    32|
+|87    |      \genblk1[13].processUnits[9].inst   |PU_78         |    32|
+|88    |      \genblk1[14].processUnits[0].inst   |PU_79         |    32|
+|89    |      \genblk1[14].processUnits[10].inst  |PU_80         |    32|
+|90    |      \genblk1[14].processUnits[11].inst  |PU_81         |    96|
+|91    |      \genblk1[14].processUnits[12].inst  |PU_82         |    32|
+|92    |      \genblk1[14].processUnits[13].inst  |PU_83         |    32|
+|93    |      \genblk1[14].processUnits[14].inst  |PU_84         |    32|
+|94    |      \genblk1[14].processUnits[15].inst  |PU_85         |    64|
+|95    |      \genblk1[14].processUnits[1].inst   |PU_86         |    32|
+|96    |      \genblk1[14].processUnits[2].inst   |PU_87         |    32|
+|97    |      \genblk1[14].processUnits[3].inst   |PU_88         |   128|
+|98    |      \genblk1[14].processUnits[4].inst   |PU_89         |    32|
+|99    |      \genblk1[14].processUnits[5].inst   |PU_90         |    32|
+|100   |      \genblk1[14].processUnits[6].inst   |PU_91         |    32|
+|101   |      \genblk1[14].processUnits[7].inst   |PU_92         |    64|
+|102   |      \genblk1[14].processUnits[8].inst   |PU_93         |    32|
+|103   |      \genblk1[14].processUnits[9].inst   |PU_94         |    32|
+|104   |      \genblk1[15].processUnits[0].inst   |PU_95         |    32|
+|105   |      \genblk1[15].processUnits[10].inst  |PU_96         |    32|
+|106   |      \genblk1[15].processUnits[11].inst  |PU_97         |    96|
+|107   |      \genblk1[15].processUnits[12].inst  |PU_98         |    32|
+|108   |      \genblk1[15].processUnits[13].inst  |PU_99         |    32|
+|109   |      \genblk1[15].processUnits[14].inst  |PU_100        |    32|
+|110   |      \genblk1[15].processUnits[15].inst  |PU_101        |    64|
+|111   |      \genblk1[15].processUnits[1].inst   |PU_102        |    32|
+|112   |      \genblk1[15].processUnits[2].inst   |PU_103        |    32|
+|113   |      \genblk1[15].processUnits[3].inst   |PU_104        |   128|
+|114   |      \genblk1[15].processUnits[4].inst   |PU_105        |    32|
+|115   |      \genblk1[15].processUnits[5].inst   |PU_106        |    32|
+|116   |      \genblk1[15].processUnits[6].inst   |PU_107        |    32|
+|117   |      \genblk1[15].processUnits[7].inst   |PU_108        |    64|
+|118   |      \genblk1[15].processUnits[8].inst   |PU_109        |    32|
+|119   |      \genblk1[15].processUnits[9].inst   |PU_110        |    32|
+|120   |      \genblk1[1].processUnits[0].inst    |PU_111        |    32|
+|121   |      \genblk1[1].processUnits[10].inst   |PU_112        |    32|
+|122   |      \genblk1[1].processUnits[11].inst   |PU_113        |    96|
+|123   |      \genblk1[1].processUnits[12].inst   |PU_114        |    32|
+|124   |      \genblk1[1].processUnits[13].inst   |PU_115        |    32|
+|125   |      \genblk1[1].processUnits[14].inst   |PU_116        |    32|
+|126   |      \genblk1[1].processUnits[15].inst   |PU_117        |    64|
+|127   |      \genblk1[1].processUnits[1].inst    |PU_118        |    32|
+|128   |      \genblk1[1].processUnits[2].inst    |PU_119        |    32|
+|129   |      \genblk1[1].processUnits[3].inst    |PU_120        |   128|
+|130   |      \genblk1[1].processUnits[4].inst    |PU_121        |    32|
+|131   |      \genblk1[1].processUnits[5].inst    |PU_122        |    32|
+|132   |      \genblk1[1].processUnits[6].inst    |PU_123        |    32|
+|133   |      \genblk1[1].processUnits[7].inst    |PU_124        |    64|
+|134   |      \genblk1[1].processUnits[8].inst    |PU_125        |    32|
+|135   |      \genblk1[1].processUnits[9].inst    |PU_126        |    32|
+|136   |      \genblk1[2].processUnits[0].inst    |PU_127        |    32|
+|137   |      \genblk1[2].processUnits[10].inst   |PU_128        |    32|
+|138   |      \genblk1[2].processUnits[11].inst   |PU_129        |    96|
+|139   |      \genblk1[2].processUnits[12].inst   |PU_130        |    32|
+|140   |      \genblk1[2].processUnits[13].inst   |PU_131        |    32|
+|141   |      \genblk1[2].processUnits[14].inst   |PU_132        |    32|
+|142   |      \genblk1[2].processUnits[15].inst   |PU_133        |    64|
+|143   |      \genblk1[2].processUnits[1].inst    |PU_134        |    32|
+|144   |      \genblk1[2].processUnits[2].inst    |PU_135        |    32|
+|145   |      \genblk1[2].processUnits[3].inst    |PU_136        |   128|
+|146   |      \genblk1[2].processUnits[4].inst    |PU_137        |    32|
+|147   |      \genblk1[2].processUnits[5].inst    |PU_138        |    32|
+|148   |      \genblk1[2].processUnits[6].inst    |PU_139        |    32|
+|149   |      \genblk1[2].processUnits[7].inst    |PU_140        |    64|
+|150   |      \genblk1[2].processUnits[8].inst    |PU_141        |    32|
+|151   |      \genblk1[2].processUnits[9].inst    |PU_142        |    32|
+|152   |      \genblk1[3].processUnits[0].inst    |PU_143        |    32|
+|153   |      \genblk1[3].processUnits[10].inst   |PU_144        |    32|
+|154   |      \genblk1[3].processUnits[11].inst   |PU_145        |    96|
+|155   |      \genblk1[3].processUnits[12].inst   |PU_146        |    32|
+|156   |      \genblk1[3].processUnits[13].inst   |PU_147        |    32|
+|157   |      \genblk1[3].processUnits[14].inst   |PU_148        |    32|
+|158   |      \genblk1[3].processUnits[15].inst   |PU_149        |    64|
+|159   |      \genblk1[3].processUnits[1].inst    |PU_150        |    32|
+|160   |      \genblk1[3].processUnits[2].inst    |PU_151        |    32|
+|161   |      \genblk1[3].processUnits[3].inst    |PU_152        |   128|
+|162   |      \genblk1[3].processUnits[4].inst    |PU_153        |    32|
+|163   |      \genblk1[3].processUnits[5].inst    |PU_154        |    32|
+|164   |      \genblk1[3].processUnits[6].inst    |PU_155        |    32|
+|165   |      \genblk1[3].processUnits[7].inst    |PU_156        |    64|
+|166   |      \genblk1[3].processUnits[8].inst    |PU_157        |    32|
+|167   |      \genblk1[3].processUnits[9].inst    |PU_158        |    32|
+|168   |      \genblk1[4].processUnits[0].inst    |PU_159        |    32|
+|169   |      \genblk1[4].processUnits[10].inst   |PU_160        |    32|
+|170   |      \genblk1[4].processUnits[11].inst   |PU_161        |    96|
+|171   |      \genblk1[4].processUnits[12].inst   |PU_162        |    32|
+|172   |      \genblk1[4].processUnits[13].inst   |PU_163        |    32|
+|173   |      \genblk1[4].processUnits[14].inst   |PU_164        |    32|
+|174   |      \genblk1[4].processUnits[15].inst   |PU_165        |    64|
+|175   |      \genblk1[4].processUnits[1].inst    |PU_166        |    32|
+|176   |      \genblk1[4].processUnits[2].inst    |PU_167        |    32|
+|177   |      \genblk1[4].processUnits[3].inst    |PU_168        |   128|
+|178   |      \genblk1[4].processUnits[4].inst    |PU_169        |    32|
+|179   |      \genblk1[4].processUnits[5].inst    |PU_170        |    32|
+|180   |      \genblk1[4].processUnits[6].inst    |PU_171        |    32|
+|181   |      \genblk1[4].processUnits[7].inst    |PU_172        |    64|
+|182   |      \genblk1[4].processUnits[8].inst    |PU_173        |    32|
+|183   |      \genblk1[4].processUnits[9].inst    |PU_174        |    32|
+|184   |      \genblk1[5].processUnits[0].inst    |PU_175        |    32|
+|185   |      \genblk1[5].processUnits[10].inst   |PU_176        |    32|
+|186   |      \genblk1[5].processUnits[11].inst   |PU_177        |    96|
+|187   |      \genblk1[5].processUnits[12].inst   |PU_178        |    32|
+|188   |      \genblk1[5].processUnits[13].inst   |PU_179        |    32|
+|189   |      \genblk1[5].processUnits[14].inst   |PU_180        |    32|
+|190   |      \genblk1[5].processUnits[15].inst   |PU_181        |    64|
+|191   |      \genblk1[5].processUnits[1].inst    |PU_182        |    32|
+|192   |      \genblk1[5].processUnits[2].inst    |PU_183        |    32|
+|193   |      \genblk1[5].processUnits[3].inst    |PU_184        |   128|
+|194   |      \genblk1[5].processUnits[4].inst    |PU_185        |    32|
+|195   |      \genblk1[5].processUnits[5].inst    |PU_186        |    32|
+|196   |      \genblk1[5].processUnits[6].inst    |PU_187        |    32|
+|197   |      \genblk1[5].processUnits[7].inst    |PU_188        |    64|
+|198   |      \genblk1[5].processUnits[8].inst    |PU_189        |    32|
+|199   |      \genblk1[5].processUnits[9].inst    |PU_190        |    32|
+|200   |      \genblk1[6].processUnits[0].inst    |PU_191        |    32|
+|201   |      \genblk1[6].processUnits[10].inst   |PU_192        |    32|
+|202   |      \genblk1[6].processUnits[11].inst   |PU_193        |    96|
+|203   |      \genblk1[6].processUnits[12].inst   |PU_194        |    32|
+|204   |      \genblk1[6].processUnits[13].inst   |PU_195        |    32|
+|205   |      \genblk1[6].processUnits[14].inst   |PU_196        |    32|
+|206   |      \genblk1[6].processUnits[15].inst   |PU_197        |    64|
+|207   |      \genblk1[6].processUnits[1].inst    |PU_198        |    32|
+|208   |      \genblk1[6].processUnits[2].inst    |PU_199        |    32|
+|209   |      \genblk1[6].processUnits[3].inst    |PU_200        |   128|
+|210   |      \genblk1[6].processUnits[4].inst    |PU_201        |    32|
+|211   |      \genblk1[6].processUnits[5].inst    |PU_202        |    32|
+|212   |      \genblk1[6].processUnits[6].inst    |PU_203        |    32|
+|213   |      \genblk1[6].processUnits[7].inst    |PU_204        |    64|
+|214   |      \genblk1[6].processUnits[8].inst    |PU_205        |    32|
+|215   |      \genblk1[6].processUnits[9].inst    |PU_206        |    32|
+|216   |      \genblk1[7].processUnits[0].inst    |PU_207        |    32|
+|217   |      \genblk1[7].processUnits[10].inst   |PU_208        |    32|
+|218   |      \genblk1[7].processUnits[11].inst   |PU_209        |    96|
+|219   |      \genblk1[7].processUnits[12].inst   |PU_210        |    32|
+|220   |      \genblk1[7].processUnits[13].inst   |PU_211        |    32|
+|221   |      \genblk1[7].processUnits[14].inst   |PU_212        |    32|
+|222   |      \genblk1[7].processUnits[15].inst   |PU_213        |    64|
+|223   |      \genblk1[7].processUnits[1].inst    |PU_214        |    32|
+|224   |      \genblk1[7].processUnits[2].inst    |PU_215        |    32|
+|225   |      \genblk1[7].processUnits[3].inst    |PU_216        |   128|
+|226   |      \genblk1[7].processUnits[4].inst    |PU_217        |    32|
+|227   |      \genblk1[7].processUnits[5].inst    |PU_218        |    32|
+|228   |      \genblk1[7].processUnits[6].inst    |PU_219        |    32|
+|229   |      \genblk1[7].processUnits[7].inst    |PU_220        |    64|
+|230   |      \genblk1[7].processUnits[8].inst    |PU_221        |    32|
+|231   |      \genblk1[7].processUnits[9].inst    |PU_222        |    32|
+|232   |      \genblk1[8].processUnits[0].inst    |PU_223        |    32|
+|233   |      \genblk1[8].processUnits[10].inst   |PU_224        |    32|
+|234   |      \genblk1[8].processUnits[11].inst   |PU_225        |    96|
+|235   |      \genblk1[8].processUnits[12].inst   |PU_226        |    32|
+|236   |      \genblk1[8].processUnits[13].inst   |PU_227        |    32|
+|237   |      \genblk1[8].processUnits[14].inst   |PU_228        |    32|
+|238   |      \genblk1[8].processUnits[15].inst   |PU_229        |    64|
+|239   |      \genblk1[8].processUnits[1].inst    |PU_230        |    32|
+|240   |      \genblk1[8].processUnits[2].inst    |PU_231        |    32|
+|241   |      \genblk1[8].processUnits[3].inst    |PU_232        |   128|
+|242   |      \genblk1[8].processUnits[4].inst    |PU_233        |    32|
+|243   |      \genblk1[8].processUnits[5].inst    |PU_234        |    32|
+|244   |      \genblk1[8].processUnits[6].inst    |PU_235        |    32|
+|245   |      \genblk1[8].processUnits[7].inst    |PU_236        |    64|
+|246   |      \genblk1[8].processUnits[8].inst    |PU_237        |    32|
+|247   |      \genblk1[8].processUnits[9].inst    |PU_238        |    32|
+|248   |      \genblk1[9].processUnits[0].inst    |PU_239        |    32|
+|249   |      \genblk1[9].processUnits[10].inst   |PU_240        |    32|
+|250   |      \genblk1[9].processUnits[11].inst   |PU_241        |    96|
+|251   |      \genblk1[9].processUnits[12].inst   |PU_242        |    32|
+|252   |      \genblk1[9].processUnits[13].inst   |PU_243        |    32|
+|253   |      \genblk1[9].processUnits[14].inst   |PU_244        |    32|
+|254   |      \genblk1[9].processUnits[15].inst   |PU_245        |    64|
+|255   |      \genblk1[9].processUnits[1].inst    |PU_246        |    32|
+|256   |      \genblk1[9].processUnits[2].inst    |PU_247        |    32|
+|257   |      \genblk1[9].processUnits[3].inst    |PU_248        |   128|
+|258   |      \genblk1[9].processUnits[4].inst    |PU_249        |    32|
+|259   |      \genblk1[9].processUnits[5].inst    |PU_250        |    32|
+|260   |      \genblk1[9].processUnits[6].inst    |PU_251        |    32|
+|261   |      \genblk1[9].processUnits[7].inst    |PU_252        |    64|
+|262   |      \genblk1[9].processUnits[8].inst    |PU_253        |    32|
+|263   |      \genblk1[9].processUnits[9].inst    |PU_254        |    32|
++------+------------------------------------------+--------------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:00:35 ; elapsed = 00:00:52 . Memory (MB): peak = 1751.367 ; gain = 1217.586
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 242 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:00:35 ; elapsed = 00:00:52 . Memory (MB): peak = 1751.367 ; gain = 1217.586
+Synthesis Optimization Complete : Time (s): cpu = 00:00:35 ; elapsed = 00:00:52 . Memory (MB): peak = 1751.367 ; gain = 1217.586
+INFO: [Project 1-571] Translating synthesized netlist
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.701 . Memory (MB): peak = 1802.445 ; gain = 0.000
+INFO: [Netlist 29-17] Analyzing 6767 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 1 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.023 . Memory (MB): peak = 1948.934 ; gain = 0.000
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Synth Design complete | Checksum: 7f0ac40e
+INFO: [Common 17-83] Releasing license: Synthesis
+62 Infos, 100 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:00:48 ; elapsed = 00:01:07 . Memory (MB): peak = 1948.934 ; gain = 1418.090
+Write ShapeDB Complete: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.130 . Memory (MB): peak = 1948.934 ; gain = 0.000
+INFO: [Common 17-1381] The checkpoint 'C:/Users/Blaze/.gemini/antigravity/brain/f3a26c17-75ec-4188-b104-352681cd1bcf/scratch/test_viv/test_mem.runs/synth_1/basys3_top.dcp' has been generated.
+INFO: [Vivado 12-24828] Executing command : report_utilization -file basys3_top_utilization_synth.rpt -pb basys3_top_utilization_synth.pb
+INFO: [Common 17-206] Exiting Vivado at Sun Sep 20 23:24:40 2026...
+[Sun Sep 20 23:24:45 2026] synth_1 finished
+wait_on_runs: Time (s): cpu = 00:00:00 ; elapsed = 00:01:25 . Memory (MB): peak = 536.551 ; gain = 0.000
+# puts "=== SYNTHESIS LOG CHECK ==="
+=== SYNTHESIS LOG CHECK ===
+# set logfile "$TEST_DIR/test_mem.runs/synth_1/runme.log"
+# if {[file exists $logfile]} {
+#     set fp [open $logfile r]
+#     set content [read $fp]
+#     close $fp
+#     if {[string match "*Synth 8-4445*" $content]} {
+#         puts "FAILED: Synth 8-4445 still present!"
+#     } else {
+#         puts "SUCCESS: Synth 8-4445 is GONE! Memory files loaded successfully!"
+#     }
+# } else {
+#     puts "Error: logfile not found"
+# }
+SUCCESS: Synth 8-4445 is GONE! Memory files loaded successfully!
+# close_project
+# exit
+INFO: [Common 17-206] Exiting Vivado at Sun Sep 20 23:24:45 2026...

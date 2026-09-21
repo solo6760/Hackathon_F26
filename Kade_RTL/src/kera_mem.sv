@@ -27,9 +27,9 @@ module kera_mem #(
 );
     initial if (SIZE != 16) $error("kera_mem is written for SIZE = 16");
 
-    logic [31:0]        wmem [0:1023];     // 32 tiles x 32 words, tile = 4*group + ktile
-    logic [SIZE*8-1:0]  amem [0:63];       // one line per K index, byte m = X[m][k]
-    logic [SIZE*32-1:0] omem [0:127];      // one line per (token, group): line = 8*m + g
+    (* ram_style = "block" *) logic [31:0] wmem [0:1023];     // 32 tiles x 32 words, tile = 4*group + ktile
+    (* ram_style = "distributed" *) logic [SIZE*8-1:0] amem [0:63];       // one line per K index, byte m = X[m][k]
+    (* ram_style = "block" *) logic [SIZE*32-1:0] omem [0:127];      // one line per (token, group): line = 8*m + g
 
     initial begin
         $readmemh(W_FILE, wmem);
