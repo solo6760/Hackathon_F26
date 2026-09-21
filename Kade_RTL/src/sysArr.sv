@@ -5,16 +5,20 @@ module sysArr #(
     input logic n_rst,
     input logic signed [3:0] vertInput [SIZE-1:0],
     input logic signed [7:0] horizInput [SIZE-1:0],
+    /* verilator lint_off UNUSEDSIGNAL */
     input logic load_en,
+    /* verilator lint_on UNUSEDSIGNAL */
     input logic acc_clr,
     input logic acc_en,
     input logic shift_en,
-    input logic [$clog2(SIZE):0] count,
+    input logic [$clog2(SIZE)-1:0] count,
     output logic signed [31:0] out [SIZE-1:0]
 );
 
-    logic [3:0] vertPass [SIZE-1:0][SIZE-2:0];  
-    logic [7:0] horizPass [SIZE-1:0][SIZE-2:0];  
+    /* verilator lint_off UNUSEDSIGNAL */
+    logic [3:0] vertPass [SIZE-1:0][SIZE-1:0];  
+    logic [7:0] horizPass [SIZE-1:0][SIZE-1:0];  
+    /* verilator lint_on UNUSEDSIGNAL */
 
     logic signed [31:0] sums [SIZE-1:0][SIZE-1:0];
 
@@ -30,8 +34,8 @@ module sysArr #(
                 PU inst(
                     .clk(clk),
                     .n_rst(n_rst),
-                    .int8(col == 0 ? horizInput[row] : horizPass[row][col-1]),
-                    .int4(row == 0 ? vertInput[col] : vertPass[row-1][col]),
+                    .int8(horizInput[row]),
+                    .int4(vertInput[col]),
                     .prevSum(row == 0 ? {32{1'b0}} : sums[row - 1][col]),
                     //.validInput(validInput[col]),
                     .out(sums[row][col]),

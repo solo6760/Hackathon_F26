@@ -44,8 +44,10 @@ module kera_mem #(
     logic [3:0] group_q;
 
     logic [3:0] k_now;
+    /* verilator lint_off UNUSEDSIGNAL */
     logic [5:0] tile_now;
     logic [3:0] group_now;
+    /* verilator lint_on UNUSEDSIGNAL */
     logic       rd_en;
 
     // the first K-step is issued in the tile_start cycle, so data lands the cycle after
@@ -70,7 +72,7 @@ module kera_mem #(
                 group_q <= group_index;
             end else if (busy) begin
                 k <= k + 4'd1;
-                if (k == SIZE - 1) busy <= 1'b0;
+                if (k == 4'(SIZE - 1)) busy <= 1'b0;
             end
         end
     end

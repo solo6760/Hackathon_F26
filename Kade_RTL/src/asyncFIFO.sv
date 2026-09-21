@@ -1,7 +1,7 @@
-module asyncFIFO # (
-    I_SIZE = 8,
-    O_SIZE = 8,
-    WIDTH = 4
+module asyncFIFO #(
+    parameter int I_SIZE = 8,
+    parameter int O_SIZE = 8,
+    parameter int WIDTH  = 4
 ) (
     input logic clk,
     input logic n_rst,
@@ -14,43 +14,35 @@ module asyncFIFO # (
     output logic valid_read
 );
 
+    localparam int PTR_W = $clog2(WIDTH);
     logic [I_SIZE-1:0] regs [WIDTH-1:0];
-    logic [I_SIZE-1:0] next_regs [WIDTH-1:0];
-    logic [$clog2(WIDTH):0] rp, wp, next_rp, next_wp; // MSB is a flag for wrap over 
-    logic [I_SIZE-1:0] fOut, nextf;
+    logic [PTR_W:0] rp, wp;
 
     always_ff @(posedge clk, negedge n_rst) begin
-        if(!n_rst) begin
-            regs <= '{default: '0};
-            rp <= '0;
-            wp <= '0;
-            fOut <= '0;
+        if (!n_rst) begin
+            regs       <= '{default: '0};
+            rp         <= '0;
+            wp         <= '0;
+            dout       <= '0;
+            valid_read <= 1'b0;
         end else begin
-            regs <= next_regs;
-            rp <= next_rp;
-            wp <= next_wp;
-            fOut <= nextf;
+            if (wen && !full) begin
+                regs[wp[PTR_W-1:0]] <= din;
+                wp <= wp + 1'b1;
+            end
+            if (ren && !empty) begin
+                dout <= regs[rp[PTR_W-1:0]];
+                rp   <= rp + 1'b1;
+                valid_read <= 1'b1;
+            end else begin
+                valid_read <= 1'b0;
+            end
         end
     end
 
     always_comb begin
-        empty = rp == wp;
-        full = (rp[$clog2(WIDTH)] != wp[$clog2(WIDTH)] && rp[$clog2(WIDTH) - 1:0] == wp[$clog2(WIDTH) - 1:0]);
-
-        
-        next_regs = regs;
-        next_regs[wp] = wen ? din : regs[wp];
-
-        dout = ren ? regs[rp] : fOut;
-        fOut = ren ? regs[rp] : fOut;
-
-        //read pointer counter
-        next_rp = ren ? rp == WIDTH - 1 ? 0 : next_rp + 1 : rp;
-
-        //write pointer counter
-        next_wp = wen ? wp == WIDTH - 1 ? 0 : next_wp + 1 : wp;
-
-        valid_read = ren;
+        empty = (rp == wp);
+        full  = (rp[PTR_W] != wp[PTR_W]) && (rp[PTR_W-1:0] == wp[PTR_W-1:0]);
     end
 
-endmodule 
+endmodule

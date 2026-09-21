@@ -21,19 +21,20 @@ module sysController #(
 
 typedef enum logic [1:0] {
     IDLE,
-    LOAD,
     COMPUTE,
-    DRAIN
+    DRAIN,
+    DRAIN_FLUSH
 } state_t;
 
 state_t counter_state, next_counter;
 
-logic [$clog2(SIZE) - 1:0] inputCount;
+logic [$clog2(SIZE)-1:0] inputCount;
 logic roll_flag;
-logic [$clog2(SIZE) - 1:0] rollVal;
+logic [$clog2(SIZE)-1:0] rollVal;
 
 logic fifo_wr_en, fifo_full, fifo_empty;
 
+logic counter_change;
 assign counter_change = (counter_state != next_counter);
 
 logic counter_clear, counter_enable;
@@ -42,7 +43,9 @@ logic signed [31:0] sys_out [SIZE-1:0];
 
 //logic signed [31:0] plex_out;
 
-logic plex_en;
+
+//logic plex_en;
+
 
 logic [SIZE*32-1:0] sys_out_packed;
 
@@ -73,14 +76,19 @@ sysArr #(
     .n_rst(n_rst),
     .vertInput(vertInput),
     .horizInput(horizInput),
-    .load_en(load_en),
+    .load_en(1'b0),
     .acc_clr(acc_clear),
-    .acc_en(acc_en),
+    .acc_en(acc_en & feed_valid),
+    .shift_en(1'b0),
     .out(sys_out),
     .count(inputCount)
 );
 
-assign sys_out_packed = {>>{sys_out}};
+always_comb begin
+    for (int i = 0; i < SIZE; i++) begin
+        sys_out_packed[32*i+:32] = sys_out[i];
+    end
+end
 
 asyncFIFO #(
     .I_SIZE(SIZE * 32),
@@ -94,7 +102,8 @@ asyncFIFO #(
     .din(sys_out_packed),
     .dout(mem_wr_data),
     .empty(fifo_empty),
-    .full(fifo_full)
+    .full(fifo_full),
+    .valid_read(mem_wr_valid)
 );
 
 /*
@@ -148,11 +157,14 @@ always_comb begin : counterLogic
     plex_en = 1'b0;
     drain_active = 1'b0;
     computer_active = 1'b0;
+    counter_clear = 1'b0;
+    counter_enable = 1'b0;
+    rollVal = ($clog2(SIZE))'(SIZE - 1);
 
     case(counter_state)
         IDLE: begin
             if(tile_start) begin
-                next_counter = LOAD;
+                next_counter = COMPUTE;
             end else if (drain_start) begin
                 next_counter = DRAIN;
             end else begin
@@ -161,21 +173,7 @@ always_comb begin : counterLogic
 
             counter_clear = 1'b1;
             counter_enable = 1'b0;
-            rollVal = SIZE - 1;
-            ready = 1'b1;
-        end
-
-        LOAD: begin
-            if(roll_flag) begin
-                next_counter = COMPUTE;
-            end else begin
-                next_counter = LOAD;
-            end
-
-            counter_clear = 1'b0;
-            counter_enable = 1'b1;
-            rollVal = SIZE - 1;
-            computer_active = 1'b1;
+            ready = fifo_empty && !mem_wr_valid;
         end
 
         COMPUTE: begin
@@ -187,21 +185,33 @@ always_comb begin : counterLogic
 
             counter_clear = 1'b0;
             counter_enable = 1'b1;
-            rollVal = SIZE - 1;
             computer_active = 1'b1;
         end
 
         DRAIN: begin
             if(roll_flag) begin
-                next_counter = IDLE;
+                next_counter = DRAIN_FLUSH;
             end else begin
                 next_counter = DRAIN;
             end
 
             counter_clear = 1'b0;
             counter_enable = 1'b1;
-            rollVal = SIZE - 1;
             fifo_wr_en = !fifo_full;
+            plex_en = 1'b1;
+            drain_active = 1'b1;
+        end
+
+        DRAIN_FLUSH: begin
+            if(fifo_empty && !mem_wr_valid) begin
+                next_counter = IDLE;
+            end else begin
+                next_counter = DRAIN_FLUSH;
+            end
+
+            counter_clear = 1'b1;
+            counter_enable = 1'b0;
+            fifo_wr_en = 1'b0;
             plex_en = 1'b1;
             drain_active = 1'b1;
         end
@@ -211,7 +221,6 @@ always_comb begin : counterLogic
 
             counter_clear = 1'b1;
             counter_enable = 1'b0;
-            rollVal = SIZE - 1;
         end
     endcase
 end

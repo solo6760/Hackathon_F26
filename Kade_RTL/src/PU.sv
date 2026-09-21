@@ -5,10 +5,14 @@ module PU #(
     input logic n_rst,
     input logic signed [7:0] int8,
     input logic signed [3:0] int4,
+    /* verilator lint_off UNUSEDSIGNAL */
     input logic signed [31:0] prevSum,
+    /* verilator lint_on UNUSEDSIGNAL */
     input logic acc_clr,
     input logic acc_en,
+    /* verilator lint_off UNUSEDSIGNAL */
     input logic shift_en,
+    /* verilator lint_on UNUSEDSIGNAL */
     output logic signed [31:0] out,
     output logic signed [7:0] rightPass,
     output logic signed [3:0] downPass
@@ -35,7 +39,14 @@ module PU #(
         next8 = acc_en ? int8 : int8reg;
         next4 = acc_en ? int4 : int4reg;
 
-        next_sum = shift_en ? acc_clr ? {32{1'b0}} : acc_en ?  (int8reg * int4reg) + sum : sum : sum;
+        if (acc_clr) begin
+            next_sum = 32'sh0;
+        end else if (acc_en) begin
+            next_sum = sum + ($signed(int8) * $signed(int4));
+        end else begin
+            next_sum = sum;
+        end
+
         out = sum;
 
         rightPass = int8reg;
