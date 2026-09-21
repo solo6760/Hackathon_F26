@@ -1,0 +1,112 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2025.2 (win64) Build 6299465 Fri Nov 14 19:35:11 GMT 2025
+| Date         : Sun Sep 20 23:31:42 2026
+| Host         : KZLap running 64-bit major release  (build 9200)
+| Command      : report_control_sets -verbose -file basys3_top_control_sets_placed.rpt
+| Design       : basys3_top
+| Device       : xc7a35t
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Control Set Information
+
+Table of Contents
+-----------------
+1. Summary
+2. Histogram
+3. Flip-Flop Distribution
+4. Detailed Control Set Information
+
+1. Summary
+----------
+
++----------------------------------------------------------+-------+
+|                          Status                          | Count |
++----------------------------------------------------------+-------+
+| Total control sets                                       |    34 |
+|    Minimum number of control sets                        |    34 |
+|    Addition due to synthesis replication                 |     0 |
+|    Addition due to physical synthesis replication        |     0 |
+| Unused register locations in slices containing registers |    64 |
++----------------------------------------------------------+-------+
+* Control sets can be merged at opt_design using control_set_merge or merge_equivalent_drivers
+** Run report_qor_suggestions for automated merging and remapping suggestions
+
+
+2. Histogram
+------------
+
++--------------------+-------+
+|       Fanout       | Count |
++--------------------+-------+
+| Total control sets |    34 |
+| >= 0 to < 4        |     3 |
+| >= 4 to < 6        |     6 |
+| >= 6 to < 8        |     0 |
+| >= 8 to < 10       |     1 |
+| >= 10 to < 12      |     2 |
+| >= 12 to < 14      |     0 |
+| >= 14 to < 16      |     0 |
+| >= 16              |    22 |
++--------------------+-------+
+* Control sets can be remapped at either synth_design or opt_design
+
+
+3. Flip-Flop Distribution
+-------------------------
+
++--------------+-----------------------+------------------------+-----------------+--------------+
+| Clock Enable | Synchronous Set/Reset | Asynchronous Set/Reset | Total Registers | Total Slices |
++--------------+-----------------------+------------------------+-----------------+--------------+
+| No           | No                    | No                     |              30 |           12 |
+| No           | No                    | Yes                    |              53 |           34 |
+| No           | Yes                   | No                     |              11 |            5 |
+| Yes          | No                    | No                     |             128 |          108 |
+| Yes          | No                    | Yes                    |           16978 |         5724 |
+| Yes          | Yes                   | No                     |              32 |           14 |
++--------------+-----------------------+------------------------+-----------------+--------------+
+
+
+4. Detailed Control Set Information
+-----------------------------------
+
++----------------+---------------------------------------+------------------+------------------+----------------+--------------+
+|  Clock Signal  |             Enable Signal             | Set/Reset Signal | Slice Load Count | Bel Load Count | Bels / Slice |
++----------------+---------------------------------------+------------------+------------------+----------------+--------------+
+|  clk_IBUF_BUFG | u_ctrl/tile_start_i_1_n_0             | u_ctrl/ctrl_rst  |                1 |              1 |         1.00 |
+|  clk_IBUF_BUFG | u_ctrl/done_i_1_n_0                   | u_ctrl/ctrl_rst  |                1 |              3 |         3.00 |
+|  clk_IBUF_BUFG | u_ctrl/drain_start_reg_0[0]           | rst_sync         |                2 |              3 |         1.50 |
+|  clk_IBUF_BUFG | u_ctrl/group_ctr[0]                   | u_ctrl/ctrl_rst  |                2 |              4 |         2.00 |
+|  clk_IBUF_BUFG | u_ctrl/tile_start_reg_0[0]            | rst_sync         |                1 |              4 |         4.00 |
+|  clk_IBUF_BUFG | u_ctrl/group_index[2]_i_1_n_0         | u_ctrl/ctrl_rst  |                2 |              4 |         2.00 |
+|  clk_IBUF_BUFG | u_ctrl/drain_start_reg_1[0]           | rst_sync         |                1 |              4 |         4.00 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/wp0                   | rst_sync         |                2 |              5 |         2.50 |
+|  clk_IBUF_BUFG | u_ctrl/E[0]                           | rst_sync         |                3 |              5 |         1.67 |
+|  clk_IBUF_BUFG | u_ctrl/first_of_group                 | u_ctrl/ctrl_rst  |                4 |              9 |         2.25 |
+|  clk_IBUF_BUFG |                                       | u_ctrl/ctrl_rst  |                5 |             11 |         2.20 |
+|  clk_IBUF_BUFG | u_ctrl/wd[10]_i_1_n_0                 | u_ctrl/ctrl_rst  |                4 |             11 |         2.75 |
+|  clk_IBUF_BUFG |                                       |                  |               12 |             30 |         2.50 |
+|  clk_IBUF_BUFG |                                       | rst_sync         |               34 |             53 |         1.56 |
+|  clk_IBUF_BUFG | u_ctrl/tile_start_reg_0[0]            |                  |              108 |            128 |         1.19 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[10][511]_i_1_n_0 | rst_sync         |              188 |            512 |         2.72 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[11][511]_i_1_n_0 | rst_sync         |              190 |            512 |         2.69 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[3][511]_i_1_n_0  | rst_sync         |              197 |            512 |         2.60 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[14][511]_i_1_n_0 | rst_sync         |              185 |            512 |         2.77 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[5][511]_i_1_n_0  | rst_sync         |              187 |            512 |         2.74 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[7][511]_i_1_n_0  | rst_sync         |              186 |            512 |         2.75 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[13][511]_i_1_n_0 | rst_sync         |              198 |            512 |         2.59 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[8][511]_i_1_n_0  | rst_sync         |              206 |            512 |         2.49 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[9][511]_i_1_n_0  | rst_sync         |              191 |            512 |         2.68 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[1][511]_i_1_n_0  | rst_sync         |              200 |            512 |         2.56 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[12][511]_i_1_n_0 | rst_sync         |              199 |            512 |         2.57 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[15][511]_i_1_n_0 | rst_sync         |              191 |            512 |         2.68 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[2][511]_i_1_n_0  | rst_sync         |              202 |            512 |         2.53 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[6][511]_i_1_n_0  | rst_sync         |              203 |            512 |         2.52 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[4][511]_i_1_n_0  | rst_sync         |              201 |            512 |         2.55 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/regs[0][511]_i_1_n_0  | rst_sync         |              205 |            512 |         2.50 |
+|  clk_IBUF_BUFG | u_sys/inst_fifo/dout[511]_i_1_n_0     | rst_sync         |              538 |            573 |         1.07 |
+|  clk_IBUF_BUFG | u_ctrl/acc_clear_reg_0                | rst_sync         |              528 |           2112 |         4.00 |
+|  clk_IBUF_BUFG | u_ctrl/acc_en_reg_0                   | rst_sync         |             1520 |           6080 |         4.00 |
++----------------+---------------------------------------+------------------+------------------+----------------+--------------+
+
+

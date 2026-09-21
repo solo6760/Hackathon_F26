@@ -1,3 +1,4 @@
+(* use_dsp = "no" *)
 module PU #(
     
 ) (

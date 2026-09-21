@@ -52,10 +52,10 @@ logic [SIZE*32-1:0] sys_out_packed;
 logic signed [3:0]  vertInput  [SIZE-1:0];
 logic signed [7:0]  horizInput [SIZE-1:0];
 
-logic               feed_valid;
+logic feed_valid;
 
 logic [SIZE*32-1:0] mem_wr_data;
-logic               mem_wr_valid;
+logic mem_wr_valid;
 
 flexCounter #(
         .SIZE($clog2(SIZE))
@@ -154,7 +154,6 @@ always_comb begin : counterLogic
 
     fifo_wr_en = 1'b0;
     ready = 1'b0;
-    plex_en = 1'b0;
     drain_active = 1'b0;
     computer_active = 1'b0;
     counter_clear = 1'b0;
@@ -198,7 +197,6 @@ always_comb begin : counterLogic
             counter_clear = 1'b0;
             counter_enable = 1'b1;
             fifo_wr_en = !fifo_full;
-            plex_en = 1'b1;
             drain_active = 1'b1;
         end
 
@@ -212,7 +210,6 @@ always_comb begin : counterLogic
             counter_clear = 1'b1;
             counter_enable = 1'b0;
             fifo_wr_en = 1'b0;
-            plex_en = 1'b1;
             drain_active = 1'b1;
         end
 
