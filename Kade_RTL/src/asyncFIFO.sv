@@ -21,10 +21,10 @@ module asyncFIFO # (
 
     always_ff @(posedge clk, negedge n_rst) begin
         if(!n_rst) begin
-            regs[WIDTH-1:0] <= $clog2(WIDTH)'d0;
-            rp <= $clog2(WIDTH)'d0;
-            wp <= $clog2(WIDTH)'d0;
-            fOut <= $clog2(WIDTH)'d0;
+            regs <= '{default: '0};
+            rp <= '0;
+            wp <= '0;
+            fOut <= '0;
         end else begin
             regs <= next_regs;
             rp <= next_rp;
@@ -38,7 +38,8 @@ module asyncFIFO # (
         full = (rp[$clog2(WIDTH)] != wp[$clog2(WIDTH)] && rp[$clog2(WIDTH) - 1:0] == wp[$clog2(WIDTH) - 1:0]);
 
         
-        next_regs[wp] = wen ? din : regs;
+        next_regs = regs;
+        next_regs[wp] = wen ? din : regs[wp];
 
         dout = ren ? regs[rp] : fOut;
         fOut = ren ? regs[rp] : fOut;

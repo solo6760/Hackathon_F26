@@ -9,11 +9,14 @@ module sysController #(
     input logic [5:0] tile_index,
     input logic acc_clear,
     input logic acc_en,
+    input logic [3:0] group_index,
+    input logic [10:0] res_addr,
 
     // Outputs
     output logic computer_active,
     output logic drain_active,
-    output logic ready
+    output logic ready,
+    output logic [31:0] res_data
 );
 
 typedef enum logic [1:0] {
@@ -33,7 +36,25 @@ logic fifo_wr_en, fifo_full, fifo_empty;
 
 assign counter_change = (counter_state != next_counter);
 
-nbitCounter #(
+logic counter_clear, counter_enable;
+
+logic signed [31:0] sys_out [SIZE-1:0];
+
+//logic signed [31:0] plex_out;
+
+logic plex_en;
+
+logic [SIZE*32-1:0] sys_out_packed;
+
+logic signed [3:0]  vertInput  [SIZE-1:0];
+logic signed [7:0]  horizInput [SIZE-1:0];
+
+logic               feed_valid;
+
+logic [SIZE*32-1:0] mem_wr_data;
+logic               mem_wr_valid;
+
+flexCounter #(
         .SIZE($clog2(SIZE))
 ) inst_count (
         .clk(clk),
@@ -55,23 +76,38 @@ sysArr #(
     .load_en(load_en),
     .acc_clr(acc_clear),
     .acc_en(acc_en),
-    .out(out)
+    .out(sys_out),
+    .count(inputCount)
 );
 
+assign sys_out_packed = {>>{sys_out}};
+
 asyncFIFO #(
-    .SIZE(SIZE)
+    .I_SIZE(SIZE * 32),
+    .O_SIZE(SIZE * 32),
+    .WIDTH(SIZE)
 ) inst_fifo (
     .clk(clk),
     .n_rst(n_rst),
-    .write_en(fifo_wr_en),
-    .read_en(!fifo_empty),
-    .data_in(data_in),
-    .data_out(data_out),
+    .wen(fifo_wr_en),
+    .ren(!fifo_empty),
+    .din(sys_out_packed),
+    .dout(mem_wr_data),
     .empty(fifo_empty),
     .full(fifo_full)
 );
 
+/*
 
+flexMultiplex #(
+) (
+    .data(sys_out),
+    .sel(inputCount),
+    .en(plex_en),
+    .out(plex_out)
+);
+
+*/
 
 always_ff @(posedge clk, negedge n_rst) begin
     if(!n_rst) begin
@@ -82,15 +118,43 @@ always_ff @(posedge clk, negedge n_rst) begin
 end
 
 
+kera_mem #(
+    .SIZE(SIZE),
+    .W_FILE("w_fc1.hex"),
+    .ACT_FILE("act_fc1.hex")
+) inst_kera_mem (
+    .clk(clk),
+    .n_rst(n_rst),
+    .tile_start(tile_start),
+    .tile_index(tile_index),
+    .group_index(group_index),
+    .drain_start(drain_start),
+    .feed_valid(feed_valid),
+    .vertInput(vertInput),
+    .horizInput(horizInput),
+    .wr_valid(mem_wr_valid),
+    .wr_data(mem_wr_data),
+    .res_addr(res_addr),
+    .res_data(res_data)
+);
+
+
+
 
 always_comb begin : counterLogic
 
     fifo_wr_en = 1'b0;
+    ready = 1'b0;
+    plex_en = 1'b0;
+    drain_active = 1'b0;
+    computer_active = 1'b0;
 
     case(counter_state)
         IDLE: begin
             if(tile_start) begin
                 next_counter = LOAD;
+            end else if (drain_start) begin
+                next_counter = DRAIN;
             end else begin
                 next_counter = IDLE;
             end
@@ -98,6 +162,7 @@ always_comb begin : counterLogic
             counter_clear = 1'b1;
             counter_enable = 1'b0;
             rollVal = SIZE - 1;
+            ready = 1'b1;
         end
 
         LOAD: begin
@@ -110,11 +175,12 @@ always_comb begin : counterLogic
             counter_clear = 1'b0;
             counter_enable = 1'b1;
             rollVal = SIZE - 1;
+            computer_active = 1'b1;
         end
 
         COMPUTE: begin
             if(roll_flag) begin
-                next_counter = DRAIN;
+                next_counter = IDLE;
             end else begin
                 next_counter = COMPUTE;
             end
@@ -122,6 +188,7 @@ always_comb begin : counterLogic
             counter_clear = 1'b0;
             counter_enable = 1'b1;
             rollVal = SIZE - 1;
+            computer_active = 1'b1;
         end
 
         DRAIN: begin
@@ -135,6 +202,8 @@ always_comb begin : counterLogic
             counter_enable = 1'b1;
             rollVal = SIZE - 1;
             fifo_wr_en = !fifo_full;
+            plex_en = 1'b1;
+            drain_active = 1'b1;
         end
 
         default: begin

@@ -8,9 +8,10 @@ module PU #(
     input logic signed [31:0] prevSum,
     input logic acc_clr,
     input logic acc_en,
+    input logic shift_en,
     output logic signed [31:0] out,
     output logic signed [7:0] rightPass,
-    output logic signed [3:0] downPass,
+    output logic signed [3:0] downPass
 );
 
     logic signed [31:0] sum, next_sum;
@@ -34,7 +35,7 @@ module PU #(
         next8 = acc_en ? int8 : int8reg;
         next4 = acc_en ? int4 : int4reg;
 
-        next_sum = acc_clr ? {32{1'b0}} : acc_en ? (int8reg * int4reg) + prevSum : prevSum;
+        next_sum = shift_en ? acc_clr ? {32{1'b0}} : acc_en ?  (int8reg * int4reg) + sum : sum : sum;
         out = sum;
 
         rightPass = int8reg;
