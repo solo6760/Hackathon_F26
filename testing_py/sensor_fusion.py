@@ -45,11 +45,6 @@ def generate_ares_trajectory(seq_len=64, dt=0.05, seed=42):
 
 
 def embed_sensor_stream(sensor_data, d_model=64, seed=42, as_numpy=False):
-    """Embed and quantize the sensor stream.
-
-    ``as_numpy=True`` avoids importing PyTorch in high-throughput vector tools;
-    the default preserves the original tensor-returning public API.
-    """
     raw_channels = np.concatenate([
         sensor_data["pos"],
         sensor_data["vel"],
