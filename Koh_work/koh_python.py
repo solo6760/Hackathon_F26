@@ -26,13 +26,9 @@ def dequantize(q):
 lut = []
 
 for q_in in range(QMIN, QMAX + 1):
-
     x = dequantize(q_in)
-
     exact_output = gelu_reference(x)
-
     q_out = quantize(exact_output)
-
     lut.append(q_out)
 
 
