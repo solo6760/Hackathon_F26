@@ -1,0 +1,89 @@
+python3 testing_py/pytorch_model.py
+Loaded real trained weights from testing_py/kera_sensor_fusion_trained.pt
+Bit-Accurate RTL Model vs FP32 Baseline (S=64 tokens, H=1 head):
+  Mean Absolute Error (MAE): 0.04733
+  Max Absolute Error       : 0.20954
+  Cosine Similarity        : 0.99780
+  RTL Output Range (INT8)  : -112 to 93
+python3 Koh_work/koh_python.py
+Number of LUT entries: 256
+Mean absolute error: 0.006481730960956109
+Maximum error: 0.015524163314440398
+x = -2 exact = -0.04550026389635842 LUT = -0.03125
+x = -1 exact = -0.15865525393145707 LUT = -0.15625
+x = 0 exact = 0.0 LUT = 0.0
+x = 1 exact = 0.8413447460685429 LUT = 0.84375
+x = 2 exact = 1.9544997361036416 LUT = 1.96875
+python3 softmax_lut.py
+[0.6652409557748219, 0.24472847105479764, 0.09003057317038046]
+Exact: [0.6652409557748219, 0.24472847105479764, 0.09003057317038046]
+Approx: [0.6652409557748218, 0.24472847105479764, 0.09003057317038046]
+
+Input: [2, 1, 0]
+Exact: [0.6652409557748219, 0.24472847105479764, 0.09003057317038046]
+Approx: [0.6652409557748218, 0.24472847105479764, 0.09003057317038046]
+
+Input: [1.2, 0.3, -0.7]
+Exact: [0.6426164136687407, 0.26126833664902405, 0.09611524968223521]
+Approx: [0.6652409557748218, 0.24472847105479764, 0.09003057317038046]
+
+Input: [3.1, 2.4, 1.8]
+Exact: [0.5652537086405653, 0.280696684624496, 0.15404960673493862]
+Approx: [0.5685464148510542, 0.26856231005645526, 0.16289127509249063]
+
+Input: [-1.0, -2.0, -3.0]
+Exact: [0.6652409557748219, 0.24472847105479767, 0.09003057317038046]
+Approx: [0.6652409557748218, 0.24472847105479764, 0.09003057317038046]
+
+Input: [0.2, 0.1, 0.0]
+Exact: [0.3671654011109255, 0.3322249935333473, 0.3006096053557273]
+Approx: [0.35986746732333263, 0.35986746732333263, 0.2802650653533347]
+
+Mean error: 0.008320185395214327
+Maximum error: 0.027642473789985356
+python3 testing_py/test_reference_vec.py
+Generated M=16, K=16, N=16 vectors:
+  act_tile.hex     : 256 INT8 words
+  weights_bram.hex : 32 uint32 words (LSB-first nibbles)
+  golden_out.hex   : 256 INT32 words (-3918..2912)
+cd testing_py && python3 gen_qkv_vectors.py
+Loaded real trained Q/K/V weights from testing_py/kera_sensor_fusion_trained.pt
+Generated bit-accurate vectors in vectors_qkv/ (S=64 tokens, H=1 heads):
+  weights: 512 x 32-bit words/matrix, LSB-first INT4
+  activations: 64 lines x 512-bit words
+  projections: (64, 64) INT32 accumulator words
+  scores: (64, 64) INT32 score matrix
+  context: (64, 64) INT32 context output
+python3 testing_py/ablation_study.py
+KERA THREE-WAY ABLATION
+Metric                                A: INT8        B: INT4        C: KERA
+Weight storage (KiB)                     32.0           16.0           16.0
+BRAM36K count                               8              4              4
+Peak buffer (bytes)                     49152          49152          30208
+Memory traffic (bytes)                 106496          90112          57344
+Latency (cycles)                        11008          10752          10368
+MAE vs FP32                          0.013419       0.114837       0.114837
+iverilog -g2012 -o /tmp/sim_kera_gemm datapath/tb_kera_gemm.sv
+vvp /tmp/sim_kera_gemm
+RTL Simulation Complete: dumped 256 INT32 outputs to rtl_out.hex
+datapath/tb_kera_gemm.sv:77: $finish called at 0 (1ps)
+python3 testing_py/ablation_study.py --rtl-dump rtl_out.hex --quant-hex golden_out.hex
+KERA THREE-WAY ABLATION
+Metric                                A: INT8        B: INT4        C: KERA
+Weight storage (KiB)                     32.0           16.0           16.0
+BRAM36K count                               8              4              4
+Peak buffer (bytes)                     49152          49152          30208
+Memory traffic (bytes)                 106496          90112          57344
+Latency (cycles)                        11008          10752          10368
+MAE vs FP32                          0.013419       0.114837       0.114837
+
+THREE-TIER NUMERICAL VERIFICATION
+[Quant_vs_RTL]
+  elements              : 256
+  mae                   : 0.0
+  rmse                  : 0.0
+  max_abs_error         : 0.0
+  cosine_similarity     : 1.0
+  bitwise_mismatches    : 0
+  mismatch_percent      : 0.0
+  bit_accurate          : True
